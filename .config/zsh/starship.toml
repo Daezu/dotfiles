@@ -1,0 +1,120 @@
+"$schema" = 'https://starship.rs/config-schema.json'
+
+add_newline = false
+
+format = "($username )($directory )($os )($git_branch$git_status$nodejs$rust$golang$php$python )$character"
+
+palette = 'matugen'
+
+# Prompt symbols 
+[character]
+success_symbol = "[❯](color9)"
+error_symbol   = "[❯](error)"
+vimcmd_symbol  = "[❮](#f9e2af)"
+
+#success_symbol = "[🞈](color9 bold)"
+#error_symbol = "[🞈](error)"
+#vicmd_symbol = "[🞈](#f9e2af)"
+
+[username]
+style_user = "color8 bold"
+style_root = "error bold"
+format = "[](fg:color4)[$user](fg:$style bg:color4)[](fg:color4)"
+show_always = false
+
+[os]
+disabled = false
+format = "[$symbol](#blue)"
+
+[os.symbols]
+Ubuntu  = "󰕈"
+Artix   = "󰣇"
+Arch    = "󰣇"
+CachyOS = "󰣇"
+Macos   = ""
+
+[time]
+format = "[](fg:color8 bg:color4)[ ](bg:color8 fg:color5)[](fg:color8 bg:color4)[(bg:color8 fg:color5) $time](fg:color3 bg:color4)[](fg:color4) "
+disabled = true
+time_format = "%R" # Hour:Minute Format
+
+
+[directory]
+format = "[](fg:color1 bg:color4)[󰉋](bg:color1 fg:color2)[ ](fg:color1 bg:color4)[$path](fg:color3 bg:color4)[](fg:color4)"
+#format            = "[$path](cyan) "
+truncation_length = 4
+truncate_to_repo  = true
+
+[directory.substitutions]
+"Documents" = "󰈙"
+"Downloads" = ""
+"Music" = ""
+"Pictures" = ""
+
+
+# ==============================
+# GIT
+# ==============================
+
+[git_branch]
+symbol = ""
+format = "[](fg:color8 bg:color4)[$symbol](bg:color8 fg:color5)[](fg:color8 bg:color4)[(bg:color8 fg:color5) $branch](fg:color3 bg:color4)[](fg:color4)"
+#format = "[](fg:color8 bg:color4)[ ](bg:color8 fg:color5)[](fg:color8 bg:color4)[(bg:color8 fg:color5) $branch](fg:color3 bg:color4)[](fg:color4) "
+#format = "[$symbol $branch](bold purple) "
+
+[git_status]
+format     = "( $ahead_behind$staged$modified$untracked$deleted$conflicted)"
+ahead      = "[⇡$count ](bold cyan)"
+behind     = "[⇣$count ](bold cyan)"
+diverged   = "[⇡$ahead_count⇣$behind_count ](bold cyan)"
+staged     = "[+$count ](bold green)"
+modified   = "[●$count ](bold yellow)"
+untracked  = "[?$count ](bold white)"
+deleted    = "[✘$count ](bold red)"
+conflicted = "[⚡$count ](bold red)"
+
+
+
+# ==============================
+# Programming Languages
+# ==============================
+
+[python]
+format = "[](fg:color8 bg:color4)[${symbol}${version}](bg:color8 fg:color5)[](fg:color8 bg:color4)[(bg:color8 fg:color5)( ${virtualenv})](fg:color3 bg:color4)"
+symbol = '🐍 '
+# pyenv_version_name = true
+pyenv_prefix = 'venv'
+
+[nodejs]
+symbol = ""
+format = "[$symbol$version](green)"
+
+[rust]
+symbol = ""
+format = "[$symbol$version](red)"
+
+[golang]
+symbol = ""
+format = "[$symbol$version](cyan)"
+
+[php]
+symbol = ""
+format = "[$symbol$version](purple)"
+
+
+
+
+# ==============================
+# Matugen colors - make sure this is the last 14 lines of the file without trailing lines
+# ==============================
+[palettes.matugen]
+color1 = '#d5c871'
+color2 = '#373100'
+color3 = '#ccc6b5'
+color4 = '#212017'
+color5 = '#373100'
+color6 = '#15130c'
+color7 = '#15130c'
+color8 = '#d5c871'
+color9 = '#a7d0b7'
+error = '#ffb4ab'

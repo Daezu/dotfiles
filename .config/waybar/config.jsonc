@@ -1,0 +1,135 @@
+{
+
+    "reload_style_on_change": true,
+
+    "layer": "top",
+    "position": "bottom",
+    //"height": 48,
+    "height": 20,
+    "spacing": 4,
+    "margin-bottom": 0,
+    "margin-left": 0,
+    "margin-right": 0,
+    "margin-top": 0,
+
+    "modules-left": [
+        "hyprland/workspaces"
+        //"hyprland/window"
+    ],
+
+    "modules-center": [
+        
+    ],
+
+    "modules-right": [
+        "tray",
+        "pulseaudio",
+        "network",
+        "cpu",
+        "memory",
+        "clock"
+    ],
+
+
+
+
+
+    "hyprland/workspaces": {
+        "format": "{icon}: {windows}",
+        "format-window-separator": "",
+        "workspace-taskbar": {
+            "enable": true,
+            "update-active-window": true,
+            "format": "{icon} {title:.22}",
+            "icon-size": 18,
+            "on-click-window": "~/.config/hypr/focus-window.sh {address} {button}"
+        }
+    },
+
+    "hyprland/window": {
+        "format": "{}",
+        "separate-outputs": true,
+        "max-length": 40,
+        "rewrite": {
+            "(.*) — Mozilla Firefox": "$1",
+            "~": "Terminal"
+        },
+        "icon": true,
+        "icon-size": 18
+    },
+
+    "clock": {
+        "timezone": "Europe/Berlin",
+        "format": "{:%H:%M}",
+        "format-alt": "{:%A, %d %B %Y}",
+        "tooltip-format": "<tt><small>{calendar}</small></tt>",
+        "calendar": {
+            "mode": "month",
+            "on-scroll": 1,
+            "format": {
+                "months": "<span color='#ffffff'><b>{}</b></span>",
+                "days": "<span color='#c8d3f5'>{}</span>",
+                "weeks": "<span color='#6cb6eb'><b>W{}</b></span>",
+                "weekdays": "<span color='#82aaff'><b>{}</b></span>",
+                "today": "<span color='#ff9e64'><b><u>{}</u></b></span>"
+            }
+        },
+        "actions": {
+            "on-click-right": "mode",
+            "on-scroll-up": "shift_down",
+            "on-scroll-down": "shift_up"
+        }
+    },
+
+    "pulseaudio": {
+        "format": "{icon} {volume}%",
+        "format-bluetooth": "󰂯 {volume}%",
+        "format-bluetooth-muted": "󰂲",
+        "format-muted": "󰝟",
+        "format-icons": {
+            "headphone": "󰋋",
+            "hands-free": "󰋋",
+            "headset": "󰋋",
+            "phone": "",
+            "portable": "",
+            "car": "",
+            "default": ["󰕿", "󰖀", "󰕾"]
+        },
+        "on-click": "pavucontrol",
+        "on-click-right": "pactl set-sink-mute @DEFAULT_SINK@ toggle",
+        "on-scroll-up": "pactl set-sink-volume @DEFAULT_SINK@ +2%",
+        "on-scroll-down": "pactl set-sink-volume @DEFAULT_SINK@ -2%",
+        "smooth-scrolling-threshold": 1,
+        "tooltip": true,
+        "tooltip-format": "{desc} — {volume}%"
+    },
+
+    "network": {
+        "format-wifi": "󰤨 {essid}",
+        "format-ethernet": "󰈀 Connected",
+        "format-disconnected": "󰤭 Offline",
+        "format-linked": "󰈀 {ifname} (No IP)",
+        "tooltip-format-wifi": "󰤨 {essid}\nStrength: {signalStrength}%\nIP: {ipaddr}",
+        "tooltip-format-ethernet": "󰈀 {ifname}\nIP: {ipaddr}",
+        "tooltip-format-disconnected": "Disconnected",
+        "on-click": "nm-connection-editor"
+    },
+
+    "cpu": {
+        "format": "󰍛 {usage}%",
+        "tooltip": true,
+        "interval": 2
+    },
+
+    "memory": {
+        "format": "󰘚 {percentage}%",
+        "tooltip-format": "Used: {used}GB / {total}GB",
+        "interval": 5
+    },
+
+    "tray": {
+        "icon-size": 18,
+        "spacing": 8,
+        "show-passive-items": true
+    }
+}

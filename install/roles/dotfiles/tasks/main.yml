@@ -1,0 +1,163 @@
+---
+# Links/copies this repo's dotfiles into $HOME. Any app folder under .config/,
+# or any other top-level entry in this repo, is picked up automatically via
+# the two `find` tasks below — adding a new app to the repo does not require
+# touching this role.
+
+
+- name: Determine whether this run is targeting a remote host over SSH
+  ansible.builtin.set_fact:
+    dotfiles_is_remote: "{{ ansible_connection != 'local' }}"
+
+# maybe remove this if it works without
+- name: Ensure .config directory exists in user's home
+  ansible.builtin.file:
+    path: "{{ ansible_facts.env.HOME }}/.config"
+    state: directory
+    mode: '0755'
+
+- name: Stage this repo on the remote host (dotfiles_dir only exists on the controller)
+  when: dotfiles_is_remote
+  block:
+    - name: Discover top-level repo entries on the controller
+      connection: local
+      ansible.builtin.find:
+        paths: "{{ dotfiles_dir }}"
+        file_type: any
+        hidden: true
+        recurse: false
+      register: controller_top_level_entries
+
+    - name: Discover .config app entries on the controller
+      connection: local
+      ansible.builtin.find:
+        paths: "{{ dotfiles_dir }}/.config"
+        file_type: any
+        hidden: true
+        recurse: false
+      register: controller_config_entries
+
+    - name: Ensure the staging directory exists
+      ansible.builtin.file:
+        path: "{{ dotfiles_stage_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Copy top-level repo entries into the staging directory
+      ansible.builtin.copy:
+        src: "{{ item.path }}"
+        dest: "{{ dotfiles_stage_dir }}/"
+        mode: preserve
+      loop: "{{ controller_top_level_entries.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+      when: (item.path | basename) not in dotfiles_exclude_names
+
+    - name: Copy .config app entries into the staging directory
+      ansible.builtin.copy:
+        src: "{{ item.path }}"
+        dest: "{{ dotfiles_stage_dir }}/.config/"
+        mode: preserve
+      loop: "{{ controller_config_entries.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+
+    - name: Use the staged copy as the dotfiles source for the rest of this run
+      ansible.builtin.set_fact:
+        dotfiles_dir: "{{ dotfiles_stage_dir }}"
+
+- name: Discover top-level dotfiles repo entries
+  ansible.builtin.find:
+    paths: "{{ dotfiles_dir }}"
+    file_type: any
+    hidden: true
+    recurse: false
+  register: top_level_entries
+
+- name: Discover .config app entries
+  ansible.builtin.find:
+    paths: "{{ dotfiles_dir }}/.config"
+    file_type: any
+    hidden: true
+    recurse: false
+  register: config_entries
+
+- name: Reset placement list
+  ansible.builtin.set_fact:
+    dotfiles_items: []
+
+- name: Add top-level entries to the placement list
+  ansible.builtin.set_fact:
+    dotfiles_items: "{{ dotfiles_items + [{'src': item.path, 'dest': ansible_facts.env.HOME ~ '/' ~ (item.path | basename)}] }}"
+  loop: "{{ top_level_entries.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  when: (item.path | basename) not in dotfiles_exclude_names
+
+- name: Add .config app entries to the placement list
+  ansible.builtin.set_fact:
+    dotfiles_items: "{{ dotfiles_items + [{'src': item.path, 'dest': ansible_facts.env.HOME ~ '/.config/' ~ (item.path | basename)}] }}"
+  loop: "{{ config_entries.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+
+- name: Check current state of each destination
+  ansible.builtin.stat:
+    path: "{{ item.dest }}"
+  loop: "{{ dotfiles_items }}"
+  loop_control:
+    label: "{{ item.dest }}"
+  register: dest_stats
+
+- name: Back up destinations that exist and aren't already the correct link
+  ansible.builtin.shell: |
+    set -e
+    rel="{{ item.item.dest }}"
+    rel="${rel#{{ ansible_facts.env.HOME }}/}"
+    mkdir -p "{{ backup_dir }}/$(dirname "$rel")"
+    mv "{{ item.item.dest }}" "{{ backup_dir }}/$rel"
+  loop: "{{ dest_stats.results }}"
+  loop_control:
+    label: "{{ item.item.dest }}"
+  when: >
+    item.stat.exists and
+    not (dotfiles_mode == 'symlink' and item.stat.islnk and item.stat.lnk_source == item.item.src)
+
+- name: Ensure parent directories of each destination exist
+  ansible.builtin.file:
+    path: "{{ item.dest | dirname }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ dotfiles_items }}"
+  loop_control:
+    label: "{{ item.dest | dirname }}"
+
+- name: Symlink dotfiles into place
+  ansible.builtin.file:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    state: link
+    force: true
+  loop: "{{ dotfiles_items }}"
+  loop_control:
+    label: "{{ item.dest }}"
+  when: dotfiles_mode == 'symlink'
+
+- name: Copy dotfiles into place
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    remote_src: true
+    mode: preserve
+  loop: "{{ dotfiles_items }}"
+  loop_control:
+    label: "{{ item.dest }}"
+  when: dotfiles_mode == 'copy'
+
+- name: Ensure ~/.zshenv exports ZDOTDIR (zsh needs this before it can find its own config)
+  ansible.builtin.lineinfile:
+    path: "{{ ansible_facts.env.HOME }}/.zshenv"
+    create: true
+    line: 'export ZDOTDIR="{{ ansible_facts.env.HOME }}/.config/zsh"'
+    regexp: '^export ZDOTDIR='
+  when: (ansible_facts.env.HOME ~ '/.config/zsh') in (dotfiles_items | map(attribute='dest') | list)

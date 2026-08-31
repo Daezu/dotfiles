@@ -1,0 +1,211 @@
+@import "colors.css";
+
+* {
+    font-family: "Noto Sans", sans-serif;
+    font-size: 13px;
+    font-weight: 400;
+    border: none;
+    border-radius: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+}
+
+/* ── Main Bar ── */
+window#waybar {
+    background: alpha(@surface, 0.75);
+    border-top: 1px solid alpha(@outline_variant, 0.4);
+    color: @on_surface;
+    transition: background 0.3s ease;
+}
+
+window#waybar.hidden {
+    opacity: 0.2;
+}
+
+window#waybar * {
+    color: @on_surface;
+}
+
+/* ── Tooltip ── */
+tooltip {
+    background: alpha(@surface_container, 0.92);
+    border: 1px solid alpha(@outline_variant, 0.5);
+    border-radius: 8px;
+    color: @on_surface;
+    padding: 6px 10px;
+}
+
+tooltip label {
+    color: @on_surface;
+}
+
+/* ── Workspaces ── */
+#workspaces button {
+    font-family: 'Noto Sans', 'Noto Color Emoji', sans-serif;
+    font-weight: bold;
+    background-color: transparent;
+    color: @on_surface_variant;
+    box-shadow: none;
+    text-shadow: none;
+    padding: 0px;
+    border-radius: 0;
+    padding-left: 5px;
+    padding-right: 2px;
+}
+
+#workspaces .workspace-label {
+    padding-left: 3px;
+    border-top: 1px solid transparent;
+}
+
+#workspaces .taskbar-window {
+    border-top: 1px solid transparent;
+    font-weight: normal;
+    padding-left: 5px;
+    padding-right: 5px;
+    min-width: 150px;
+}
+
+#workspaces button.visible .taskbar-window,
+#workspaces button.visible .workspace-label {
+    border-color: @primary;
+}
+
+#workspaces .taskbar-window.active {
+    background-color: alpha(@primary, 0.15);
+}
+
+#workspaces .taskbar-window image {
+    margin-top: 1px;
+}
+
+#workspaces button.urgent {
+    background-color: alpha(@error, 0.3);
+    color: @error;
+}
+
+/* ── Active Window ── */
+#window {
+    padding: 0 12px;
+    color: alpha(@on_surface, 0.7);
+    font-size: 12px;
+    font-weight: 300;
+}
+
+/* ── Clock — Center ── */
+#clock {
+    font-size: 20px;
+    font-weight: 400;
+    color: @on_surface;
+    padding: 0 16px;
+    letter-spacing: 0.5px;
+}
+
+#clock:hover {
+    background: alpha(@on_surface, 0.08);
+    border-radius: 6px;
+}
+
+/* ── Right Side Modules — shared style ── */
+#pulseaudio,
+#network,
+#cpu,
+#memory,
+#battery,
+#tray {
+    padding: 0 10px;
+    color: @on_surface_variant;
+    margin: 8px 0;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+#pulseaudio:hover,
+#network:hover,
+#cpu:hover,
+#memory:hover,
+#battery:hover {
+    background: alpha(@on_surface, 0.08);
+    color: @on_surface;
+}
+
+/* ── Audio ── */
+#pulseaudio {
+    color: @primary;
+}
+
+#pulseaudio.muted {
+    color: alpha(@on_surface, 0.35);
+}
+
+/* ── Network ── */
+#network {
+    color: @secondary;
+}
+
+#network.disconnected {
+    color: alpha(@error, 0.8);
+}
+
+/* ── CPU ── */
+#cpu {
+    color: @on_surface_variant;
+}
+
+#cpu.warning {
+    color: @tertiary;
+}
+
+#cpu.critical {
+    color: @error;
+    animation: blink 1s step-end infinite;
+}
+
+/* ── Memory ── */
+#memory {
+    color: @on_surface_variant;
+}
+
+#memory.critical {
+    color: @error;
+}
+
+/* ── Battery ── */
+#battery {
+    color: @on_surface_variant;
+}
+
+#battery.warning {
+    color: @tertiary;
+}
+
+#battery.critical {
+    color: @error;
+    animation: blink 1s step-end infinite;
+}
+
+#battery.charging {
+    color: @secondary;
+}
+
+/* ── System Tray ── */
+#tray {
+    padding: 0 8px;
+}
+
+#tray > .passive {
+    opacity: 0.6;
+}
+
+#tray > .needs-attention {
+    background: alpha(@error, 0.15);
+    border-radius: 4px;
+}
+
+/* ── Blink animation for critical states ── */
+@keyframes blink {
+    to {
+        color: alpha(@on_surface, 0.3);
+    }
+}

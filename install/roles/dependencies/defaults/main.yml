@@ -1,0 +1,17 @@
+---
+skip_packages: false
+local_bin: "{{ ansible_facts.env.HOME }}/.local/bin"
+
+# GitHub release architecture name, per tool (their asset-naming conventions differ)
+eza_arch_map:
+  x86_64: x86_64
+  aarch64: aarch64
+lf_arch_map:
+  x86_64: amd64
+  aarch64: arm64
+yazi_arch_map:
+  x86_64: x86_64
+  aarch64: aarch64
+nvim_arch_map:
+  x86_64: x86_64
+  aarch64: arm64

@@ -1,0 +1,107 @@
+[config]
+reload_apps = true
+
+[config.reload_apps_list]
+waybar    = true
+dunst     = true
+gtk_theme = true
+
+[config.wallpaper]
+set = true
+#command = "hyprctl hyprpaper wallpaper ', {{ image }}, cover'"
+command = "awww img {{ image }} --transition-type center --transition-step 90 --transition-fps 60"
+
+# [templates.hyprland]
+# input_path  = "./matugen-themes/templates/hyprland-colors.conf"
+# output_path = "~/.config/hypr/colors.conf"
+# post_hook   = "hyprctl reload"
+
+[templates.hyprland]
+input_path  = "./matugen-themes/templates/hyprland-colors.lua"
+output_path = "~/.config/hypr/colors.lua"
+post_hook   = "hyprctl reload"
+
+[templates.terminal-sequences]
+input_path = './matugen-themes/templates/terminal-sequences'
+output_path = "~/.cache/terminal-sequences"
+#crashes the terminals
+#post_hook = "tee /dev/pts/[0-9]* < ~/.cache/terminal-sequences" # export the sequences to every running terminal
+
+[templates.starship]
+input_path = './matugen-themes/templates/starship-colors.toml'
+#input_path = '~/.congig/zsh/starhip-colors.toml'
+#output_path = '~/.config/zsh/starship.toml'
+output_path = '/tmp/matugen.toml'
+# merges the original config with the generated colors
+post_hook = 'head -n -14 ~/.config/zsh/starship.toml > /tmp/starship.toml && cat /tmp/matugen.toml >> /tmp/starship.toml && mv /tmp/starship.toml ~/.config/zsh/starship.toml'
+
+[templates.waybar]
+input_path  = "./matugen-themes/templates/colors.css"
+output_path = "~/.config/waybar/colors.css"
+post_hook   = "systemctl --user restart waybar"
+
+[templates.dunst]
+input_path  = "./matugen-themes/templates/dunstrc-colors"
+output_path = "~/.config/dunst/dunstrc"
+post_hook   = "dunstctl reload"
+
+[templates.kitty]
+input_path  = "./matugen-themes/templates/kitty-colors.conf"
+output_path = "~/.config/kitty/colors.conf"
+post_hook   = "kill -SIGUSR1 $(pidof kitty) 2>/dev/null || true"
+#index       = 1
+
+[templates.qt6ct]
+input_path = "./matugen-themes/templates/qtct-colors.conf"
+output_path = "~/.config/qt6ct/qt6ct.conf"
+
+[templates.gtk3]
+input_path = './matugen-themes/templates/gtk-colors.css'
+output_path = '~/.config/gtk-3.0/colors.css'
+[templates.gtk4]
+input_path = './matugen-themes/templates/gtk-colors.css'
+output_path = '~/.config/gtk-4.0/colors.css'
+
+[templates.yazi]
+input_path = './matugen-themes/templates/yazi-theme.toml'
+output_path = '~/.config/yazi/theme.toml'
+
+[templates.vscode-raw]
+input_path = './matugen-themes/templates/vscode-colors'
+output_path = '~/.cache/matugen/vscode-colors'
+[templates.vscode-json]
+input_path = './matugen-themes/templates/vscode-colors.json'
+output_path = '~/.cache/matugen/vscode-colors.json'
+
+[templates.nvim]
+input_path = './matugen-themes/templates/neovim/template.lua'
+output_path = '~/.config/nvim/matugen.lua'
+post_hook = 'pkill -SIGUSR1 nvim | true'
+
+[templates.steam]
+input_path = './matugen-themes/templates/steam.css'
+output_path = '~/.var/app/io.github.Foldex.AdwSteamGtk/config/AdwSteamGtk/custom.css'
+post_hook =  'flatpak run io.github.Foldex.AdwSteamGtk -i'
+
+[templates.firefox-website-colors]
+input_path = "./matugen-themes/templates/firefox-colors.css"
+# resolves the profile dir dynamically (flatpak, falling back to native package install)
+# and points output_path at it through a stable symlink, since matugen needs a literal path.
+output_path = "~/.cache/matugen/firefox-chrome/colors.css"
+pre_hook = """profile_dir=$(find ~/.var/app/org.mozilla.firefox/config/mozilla/firefox ~/.mozilla/firefox -maxdepth 1 -iname '*.default-release' -type d 2>/dev/null | head -n1) && mkdir -p "$profile_dir/chrome" && ln -sfn "$profile_dir/chrome" ~/.cache/matugen/firefox-chrome && cp -R ~/.config/matugen/matugen-themes/websites "$profile_dir/chrome/" """
+
+[templates.pywalfox]
+input_path = './matugen-themes/templates/pywalfox-colors.json'
+output_path = '~/.cache/wal/colors.json'
+post_hook = 'pywalfox update'
+
+[templates.sddm]
+input_path  = "./matugen-themes/templates/sddm-astronaut.conf"
+output_path = "~/.config/sddm/astronaut.conf"
+#pre_hook    = "sudo ln -fs {{ image }} /usr/local/share/backgrounds/wallpaper.jpg"
+#pre_hook    = "mkdir -p /usr/local/share/backgrounds && cp {{ image }} /usr/local/share/backgrounds/wallpaper.jpg && chown -R root:root /usr/local/share/backgrounds && chmod -R 644 /usr/local/share/backgrounds"
+pre_hook    = "sudo cp -f {{ image }} /usr/share/sddm/themes/sddm-astronaut-theme/Backgrounds/wallpaper.jpg && sudo chown root:root /usr/share/sddm/themes/sddm-astronaut-theme/Backgrounds/wallpaper.jpg && sudo chmod 644 /usr/share/sddm/themes/sddm-astronaut-theme/Backgrounds/wallpaper.jpg"
+post_hook   = "cp -f ~/.config/sddm/astronaut.conf /usr/share/sddm/themes/sddm-astronaut-theme/Themes/astronaut.conf"
+index       = 1
+
+

@@ -1,0 +1,22 @@
+---
+# zsh plugins are normally git-cloned lazily by plugins.zsh the first time an
+# interactive shell starts. On a fresh machine that means the first SSH login
+# pays for several network clones while rendering its first prompt. Prefetch
+# them now by sourcing plugins.zsh non-interactively — this reuses its own
+# _zplugin_load logic, so the plugin list never needs to be duplicated here.
+
+- name: Check for plugins.zsh
+  ansible.builtin.stat:
+    path: "{{ ansible_facts.env.HOME }}/.config/zsh/plugins.zsh"
+  register: plugins_zsh_stat
+
+- name: Prefetch zsh plugins (reuses plugins.zsh's own _zplugin_load git-clone logic)
+  ansible.builtin.shell: >
+    env -u ZDOTDIR -u XDG_CONFIG_HOME ZDOTDIR="{{ ansible_facts.env.HOME }}/.config/zsh"
+    zsh -c 'source "$ZDOTDIR/plugins.zsh"'
+  args:
+    executable: /bin/bash
+  when: plugins_zsh_stat.stat.exists
+  changed_when: "'Installing' in prefetch_result.stdout"
+  failed_when: false
+  register: prefetch_result

@@ -1,0 +1,22 @@
+---
+dotfiles_mode: symlink
+dotfiles_dir: "{{ (playbook_dir + '/..') | realpath }}"
+# Only used when connecting over SSH: dotfiles_dir above is a controller-side
+dotfiles_stage_dir: "{{ ansible_facts.env.HOME }}/.cache/dotfiles-src"
+backup_dir: "{{ ansible_facts.env.HOME }}/.dotfiles_backup/{{ ansible_facts.date_time.iso8601_basic_short }}"
+local_bin: "{{ ansible_facts.env.HOME }}/.local/bin"
+
+dotfiles_exclude_names:
+  - .git
+  - .gitignore
+  - .gitmodules
+  - .github
+  - README.md
+  - README
+  - LICENSE
+  - install.sh
+  - ansible.cfg
+  - playbook.yml
+  - roles
+  - install
+  - .config

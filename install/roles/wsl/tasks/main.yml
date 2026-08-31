@@ -1,0 +1,135 @@
+---
+# Configure the Windows Terminal font from inside WSL.
+#
+#   ansible-playbook windows-terminal-font.yml -e windows_user=YOURNAME
+#
+# Runs against localhost and edits the Windows-side settings.json through /mnt/c.
+# No WinRM, no ansible.windows collection needed.
+
+- name: Configure Windows Terminal font
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    # Override on the command line, or hardcode it here.
+    windows_user: "{{ lookup('env', 'WIN_USER') }}"
+
+    # Store build. For the unpackaged (winget) build use:
+    #   /mnt/c/Users/{{ windows_user }}/AppData/Local/Microsoft/Windows Terminal/settings.json
+    # For the preview build swap in Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe
+    wt_settings: >-
+      /mnt/c/Users/{{ windows_user }}/AppData/Local/Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState/settings.json
+
+    font_face: "Cascadia Mono, Symbols Nerd Font Mono"
+    font_size: 11
+
+    # Chocolatey package providing the Symbols Nerd Font glyphs.
+    font_package: nerd-fonts-NerdFontsSymbolsOnly
+    # Family name Windows registers it under; used to skip a redundant install.
+    font_family_probe: "Symbols Nerd Font Mono"
+
+    # Merged into profiles.defaults. Add anything else you want applied
+    # to every profile here.
+    wt_desired:
+      profiles:
+        defaults:
+          font:
+            face: "{{ font_face }}"
+            size: "{{ font_size }}"
+          useAtlasEngine: true
+
+  tasks:
+    # ---------------------------------------------------------------
+    # Font installation (Windows side, via choco.exe called from WSL)
+    # ---------------------------------------------------------------
+
+    - name: Check whether Windows already has the font family
+      ansible.builtin.command:
+        argv:
+          - powershell.exe
+          - -NoProfile
+          - -Command
+          - >-
+            Add-Type -AssemblyName System.Drawing;
+            if ((New-Object System.Drawing.Text.InstalledFontCollection).Families.Name
+                -contains '{{ font_family_probe }}') { 'present' } else { 'absent' }
+      register: font_probe
+      changed_when: false
+      failed_when: false
+
+    - name: Install the font with Chocolatey
+      ansible.builtin.command:
+        argv:
+          - choco.exe
+          - install
+          - "{{ font_package }}"
+          - -y
+          - --no-progress
+      register: choco_install
+      when: "'present' not in (font_probe.stdout | default(''))"
+      changed_when: "'already installed' not in choco_install.stdout"
+
+    - name: Warn if the font is still missing
+      ansible.builtin.debug:
+        msg: >-
+          Chocolatey ran but Windows does not report '{{ font_family_probe }}'.
+          Font enumeration can lag; re-run to re-check, or verify with
+          'choco list --local-only'.
+      when:
+        - choco_install is changed
+        - "'present' not in (font_probe.stdout | default(''))"
+
+    # ---------------------------------------------------------------
+    # Terminal configuration
+    # ---------------------------------------------------------------
+
+    - name: Check that the settings file exists
+      ansible.builtin.stat:
+        path: "{{ wt_settings }}"
+      register: wt_stat
+
+    - name: Abort with a useful message if it does not
+      ansible.builtin.assert:
+        that: wt_stat.stat.exists
+        fail_msg: >-
+          Not found: {{ wt_settings }}
+          Check windows_user, and whether you have the Store or unpackaged build.
+
+    - name: Keep one pristine copy, comments and all, before we ever touch it
+      ansible.builtin.copy:
+        src: "{{ wt_settings }}"
+        dest: "{{ wt_settings }}.orig"
+        remote_src: true
+        force: false
+
+    - name: Read the current settings
+      ansible.builtin.slurp:
+        src: "{{ wt_settings }}"
+      register: wt_raw
+
+    - name: Strip // comment lines and parse as JSON
+      ansible.builtin.set_fact:
+        wt_current: >-
+          {{ wt_raw.content | b64decode
+             | regex_replace('(?m)^\s*//.*$', '')
+             | from_json }}
+
+    - name: Merge the desired font settings
+      ansible.builtin.set_fact:
+        wt_new: "{{ wt_current | combine(wt_desired, recursive=True) }}"
+
+    - name: Write settings.json back
+      ansible.builtin.copy:
+        content: "{{ wt_new | to_nice_json(indent=4, sort_keys=False) }}\n"
+        dest: "{{ wt_settings }}"
+        backup: true
+        # Uncomment if /mnt/c rejects the atomic-rename write:
+        # unsafe_writes: true
+      register: wt_write
+
+    - name: Report
+      ansible.builtin.debug:
+        msg: >-
+          {{ 'Updated. Backup at ' ~ wt_write.backup_file
+             if wt_write.changed else 'Already correct, nothing to do.' }}

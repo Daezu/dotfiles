@@ -1,0 +1,296 @@
+---
+# aliases.zsh/prompt.zsh assume these are installed (e.g. `alias ls='eza --icons'`,
+# `alias cat='bat'`, `eval "$(starship init zsh)"`); a bare devcontainer image
+# has none of them. Installed via the system package manager where possible;
+# tools not packaged for apt fall back to their official installer or a
+# prebuilt release binary, placed in {{ local_bin }} (already first on $PATH,
+# see .zshenv).
+
+- name: Ensure {{ local_bin }} exists
+  ansible.builtin.file:
+    path: "{{ local_bin }}"
+    state: directory
+    mode: "0755"
+
+
+- name: Install prerequisites
+  become: true
+  ansible.builtin.package:
+    name: 
+      - curl
+      - clang
+      - git
+      - unzip
+    state: present
+  when: ansible_facts.pkg_mgr in ['apt', 'pacman']
+
+- name: Install prerequisites - pacman
+  become: true
+  ansible.builtin.package:
+    name: 
+      - base-devel
+    state: present
+  when: ansible_facts.pkg_mgr in ['pacman']
+
+- name: Install prerequisites - apt
+  become: true
+  ansible.builtin.package:
+    name: 
+      - build-essential
+    state: present
+  when: ansible_facts.pkg_mgr in ['apt']
+
+
+
+
+
+
+# --- nodejs: install nodejs & pnpm ---
+- name: Install nvm
+  ansible.builtin.shell: >
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.6/install.sh | bash
+  args:
+    creates: "{{ ansible_facts.env.HOME }}/.nvm/nvm.sh"
+
+- name: Install Node
+  ansible.builtin.shell: >
+    source "{{ ansible_facts.env.HOME }}/.nvm/nvm.sh" && nvm install node
+  args:
+    executable: /bin/bash
+
+- name: Install corepack (no longer bundled with Node 25+)
+  ansible.builtin.shell: >
+    source "{{ ansible_facts.env.HOME }}/.nvm/nvm.sh" && npm install -g corepack
+  args:
+    executable: /bin/bash
+  changed_when: false
+
+- name: Enable corepack (manages pnpm)
+  ansible.builtin.shell: >
+    source "{{ ansible_facts.env.HOME }}/.nvm/nvm.sh" && corepack enable pnpm && corepack use pnpm@latest
+  args:
+    executable: /bin/bash
+  changed_when: false
+
+# --- rust: no apt/pacman package, official installer only ---
+
+- name: Install rustup
+  block:
+    - name: Install rustup
+      become: true
+      ansible.builtin.package:
+        name: rustup
+        state: present
+      when: ansible_facts.pkg_mgr in ['apt', 'pacman']
+    - name: Check current rustup default toolchain
+      ansible.builtin.command: rustup show active-toolchain
+      register: rustup_active
+      changed_when: false
+      failed_when: false
+    - name: Set rustup default
+      ansible.builtin.command: rustup default stable
+      when: >
+        rustup_active.rc != 0 or
+        rustup_active.stdout | trim == ''
+
+- name: Check for tree-sitter-cli
+  ansible.builtin.command: "cargo install --list"
+  register: cargo_installed
+  changed_when: false
+  failed_when: false
+
+- name: Install tree-sitter-cli (cargo install)
+  ansible.builtin.command: "cargo install tree-sitter-cli"
+  when: cargo_installed.rc != 0 or 'tree-sitter-cli' not in cargo_installed.stdout
+
+# --- zsh, fzf, ncat, bat, fd: packaged on both apt and pacman ---
+- name: Install starship
+  become: true
+  ansible.builtin.package:
+    name: starship
+    state: present
+  when: ansible_facts.pkg_mgr in ['apt', 'pacman']
+
+- name: Install zsh
+  become: true
+  ansible.builtin.package:
+    name: zsh
+    state: present
+  when: ansible_facts.pkg_mgr in ['apt', 'pacman']
+
+- name: Ensure XDG_CONFIG_HOME and ZDOTDIR block is present
+  become: true
+  ansible.builtin.blockinfile:
+    path: /etc/zsh/zshenv
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - ZDOTDIR"
+    block: |
+      if [[ -z "$XDG_CONFIG_HOME" ]]
+      then
+        export XDG_CONFIG_HOME="$HOME/.config"
+      fi
+      if [[ -d "$XDG_CONFIG_HOME/zsh" ]]
+      then
+        export ZDOTDIR="$XDG_CONFIG_HOME/zsh"
+      fi
+
+
+
+
+
+
+- name: Install fzf
+  become: true
+  ansible.builtin.package:
+    name: fzf
+    state: present
+  when: ansible_facts.pkg_mgr in ['apt', 'pacman']
+
+- name: Install ncat/nmap
+  become: true
+  ansible.builtin.package:
+    name: "{{ 'ncat' if ansible_facts.pkg_mgr == 'apt' else 'nmap' }}"
+    state: present
+  when: ansible_facts.pkg_mgr in ['apt', 'pacman']
+
+- name: Install bat
+  become: true
+  ansible.builtin.package:
+    name: bat
+    state: present
+  when: ansible_facts.pkg_mgr in ['apt', 'pacman']
+
+- name: Install fd
+  become: true
+  ansible.builtin.package:
+    name: "{{ 'fd-find' if ansible_facts.pkg_mgr == 'apt' else 'fd' }}"
+    state: present
+  when: ansible_facts.pkg_mgr in ['apt', 'pacman']
+
+# Debian/Ubuntu's `bat`/`fd-find` packages install the binaries as `batcat`/`fdfind`.
+- name: Look for bat/batcat and fd/fdfind on PATH
+  ansible.builtin.command: "command -v {{ item }}"
+  loop: [bat, batcat, fd, fdfind]
+  register: rename_check
+  changed_when: false
+  failed_when: false
+
+- name: Symlink batcat -> bat if needed
+  ansible.builtin.file:
+    src: "{{ (rename_check.results | selectattr('item', 'equalto', 'batcat') | first).stdout }}"
+    dest: "{{ local_bin }}/bat"
+    state: link
+  when: >
+    (rename_check.results | selectattr('item', 'equalto', 'bat') | first).rc != 0 and
+    (rename_check.results | selectattr('item', 'equalto', 'batcat') | first).rc == 0
+
+- name: Symlink fdfind -> fd if needed
+  ansible.builtin.file:
+    src: "{{ (rename_check.results | selectattr('item', 'equalto', 'fdfind') | first).stdout }}"
+    dest: "{{ local_bin }}/fd"
+    state: link
+  when: >
+    (rename_check.results | selectattr('item', 'equalto', 'fd') | first).rc != 0 and
+    (rename_check.results | selectattr('item', 'equalto', 'fdfind') | first).rc == 0
+
+# --- eza / lf / yazi: packaged on pacman; GitHub release binary elsewhere ---
+
+- name: Install eza, lf
+  become: true
+  ansible.builtin.package:
+    name:
+      - eza
+      - lf
+    state: present
+  when: ansible_facts.pkg_mgr in ['apt', 'pacman']
+
+- name: Install yazi via pacman
+  become: true
+  ansible.builtin.package:
+    name:
+      - yazi
+    state: present
+  when: ansible_facts.pkg_mgr == 'pacman'
+  
+- name: Check for eza/lf/yazi
+  ansible.builtin.command: "command -v {{ item }}"
+  loop: [eza, lf, yazi]
+  register: release_tool_check
+  changed_when: false
+  failed_when: false
+
+
+- name: Download+install yazi from GitHub release (no apt package)
+  when: >
+    ansible_facts.pkg_mgr != 'pacman' and
+    (release_tool_check.results | selectattr('item', 'equalto', 'yazi') | first).rc != 0
+  block:
+    - name: Ensure unzip is present
+      become: true
+      ansible.builtin.package:
+        name: unzip
+        state: present
+      when: ansible_facts.pkg_mgr in ['apt', 'pacman']
+    - name: Download yazi release archive
+      ansible.builtin.get_url:
+        url: "https://github.com/sxyazi/yazi/releases/latest/download/yazi-{{ yazi_arch_map[ansible_facts.architecture] }}-unknown-linux-gnu.zip"
+        dest: /tmp/yazi.zip
+        mode: "0644"
+    - name: Extract yazi to a temp dir
+      ansible.builtin.unarchive:
+        src: /tmp/yazi.zip
+        dest: /tmp
+        remote_src: true
+    - name: Find extracted yazi/ya binaries
+      ansible.builtin.find:
+        paths: /tmp
+        patterns: ["yazi", "ya"]
+        recurse: true
+        file_type: file
+      register: yazi_binaries
+    - name: Install yazi/ya binaries into {{ local_bin }}
+      ansible.builtin.copy:
+        src: "{{ item.path }}"
+        dest: "{{ local_bin }}/{{ item.path | basename }}"
+        remote_src: true
+        mode: "0755"
+      loop: "{{ yazi_binaries.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+
+# --- nvim: fix the common "binary present, runtime missing" broken install ---
+# Some environments provision nvim via a broken third-party installer that
+# extracts only bin/nvim from the official tarball and discards
+# share/nvim/runtime (breaks require('vim.uri'), :syntax, etc. at startup).
+# Detect that specific state, not just whether the binary exists.
+
+- name: Check for nvim
+  ansible.builtin.command: command -v nvim
+  register: nvim_which
+  changed_when: false
+  failed_when: false
+
+- name: Check nvim's runtime marker (only meaningful if nvim exists)
+  ansible.builtin.stat:
+    path: "{{ (nvim_which.stdout | dirname | dirname) }}/share/nvim/runtime/syntax/syntax.vim"
+  register: nvim_runtime_stat
+  when: nvim_which.rc == 0
+
+- name: Install a complete nvim (fixes missing or broken installs)
+  when: nvim_which.rc != 0 or not nvim_runtime_stat.stat.exists
+  block:
+    - name: Download nvim release tarball
+      ansible.builtin.get_url:
+        url: "https://github.com/neovim/neovim/releases/latest/download/nvim-linux-{{ nvim_arch_map[ansible_facts.architecture] }}.tar.gz"
+        dest: /tmp/nvim.tar.gz
+        mode: "0644"
+    - name: Extract nvim into {{ ansible_facts.env.HOME }}/.local (merging bin/ and share/)
+      ansible.builtin.unarchive:
+        src: /tmp/nvim.tar.gz
+        dest: "{{ ansible_facts.env.HOME }}/.local"
+        remote_src: true
+        extra_opts:
+          - --strip-components=1

@@ -1,0 +1,48 @@
+[mgr]
+show_hidden = true
+sort_by = "alphabetical"
+
+
+# yazi.toml
+[manager]
+show_hidden = true
+
+[opener]
+play = [
+	{ run = "mpv %s", orphan = true, for = "unix" },
+]
+edit = [
+	{ run = "$EDITOR %s", block = true, for = "unix" },
+]
+open = [
+	{ run = "xdg-open %s", desc = "Open" },
+]
+
+[open]
+prepend_rules = [
+	{ url = "*.json", use = "edit" },
+	{ url = "*.sh", use = "edit" },
+	{ url = "*.toml", use = "edit" },
+	{ url = "*.y*ml", use = "edit" },
+	{ url = "*config", use = "edit" },
+	{ url = "*.cfg", use = "edit" },
+	{ url = "*env", use = "edit" },
+	{ url = "*.d", use = "edit" },
+	{ url = "*.md", use = "edit" },
+	{ url = "*.txt", use = "edit" },
+	{ url = ".zsh*", use = "edit" },
+	{ url = "*.ini", use = "edit" },
+	{ url = "*.lua", use = "edit" },
+	{ url = "*.xml", use = "edit" },
+	{ url = "*.log", use = "edit" },
+	{ url = "*.html", use = "edit" },
+# open with normal / gnome / kde
+	{ url = "*.ods", use = "open" },
+	{ url = "*.pdf", use = "open" },
+# open with multimedia player
+	{ url = "*.mp3", use = "play" },
+
+]
+append_rules = [
+	{ url = "*", use = "edit" },
+]

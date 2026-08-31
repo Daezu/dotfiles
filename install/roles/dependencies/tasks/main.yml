@@ -1,0 +1,7 @@
+---
+- name: Prefetch zsh plugins
+  ansible.builtin.import_tasks: plugins.yml
+
+- name: Install missing CLI tool dependencies
+  ansible.builtin.import_tasks: packages.yml
+  when: not skip_packages

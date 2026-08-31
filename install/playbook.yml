@@ -1,0 +1,6 @@
+---
+- name: Install dotfiles and their dependencies
+  hosts: all
+  roles:
+    - dotfiles
+    - dependencies
