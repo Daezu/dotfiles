@@ -37,3 +37,4 @@ export DOCKER_HOST="unix://$XDG_RUNTIME_DIR/podman/podman.sock"
 # Personal binaries/scripts
 export PATH="$HOME/.local/bin:$PATH"
 export PATH="$PNPM_HOME/bin:$PATH"
+export PATH="$HOME/.cargo/bin:$PATH"
