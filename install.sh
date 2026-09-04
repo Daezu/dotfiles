@@ -84,9 +84,9 @@ read -p "Run installation on $PROMPT_TARGET? (y/n)" -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
-    ansible-playbook -i "$TARGET_HOST," "$SCRIPT_DIR/install/playbook.yml" -e "$EXTRA_VARS"
+    ansible-playbook -i "$TARGET_HOST," "$SCRIPT_DIR/install/playbook.yml" -e "$EXTRA_VARS" --ask-become-pass
     if [[ -n "$WSL_USER" ]]; then
-        ansible-playbook "$SCRIPT_DIR/install/roles/wsl/tasks/main.yml" -e "windows_user=$WSL_USER"
+        ansible-playbook "$SCRIPT_DIR/install/roles/wsl/tasks/main.yml" -e "windows_user=$WSL_USER" --ask-become-pass
     fi
 else
     echo "aborted"
