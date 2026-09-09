@@ -97,6 +97,8 @@ source "$ZDOTDIR/plugins.zsh"
 source "$ZDOTDIR/prompt.zsh"
 
 
+# Custom
+source "$ZDOTDIR/custom.zsh"
 
 
 # =========================================================
@@ -117,3 +119,8 @@ function y() {
 # NVM
 # =========================================================
 source /usr/share/nvm/init-nvm.sh
+
+
+
+
+

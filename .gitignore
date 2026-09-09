@@ -1,0 +1,19 @@
+
+# custom shell configs/env/...
+.config/zsh/custom.zsh
+
+
+# matugen/style/color files
+.config/gtk-3.0/colors.css
+.config/gtk-4.0/colors.css
+.config/hypr/colors.lua
+.config/kitty/colors.conf
+.config/nvim/matugen.lua
+.config/waybar/colors.css
+.config/yazi/theme.toml
+
+# metadata/temp/...
+.config/nvim/lazy-lock.json
+.config/zsh/.zcompdump
+.config/zsh/plugins
+
