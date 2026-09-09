@@ -3,6 +3,8 @@
 # History
 # =========================================================
 
+mkdir -p $XDG_STATE_HOME/zsh
+touch $XDG_STATE_HOME/zsh/history
 HISTFILE="$XDG_STATE_HOME/zsh/history"
 HISTSIZE=100000
 SAVEHIST=100000
