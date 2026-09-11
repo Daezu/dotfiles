@@ -188,6 +188,9 @@ hl.bind(mainMod .. " + P", hl.dsp.window.pseudo()) -- dwindle
 hl.bind(mainMod .. " + J", hl.dsp.layout("togglesplit")) -- dwindle
 hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen({ mode = "maximized" }))
 hl.bind(mainMod .. " + D", hl.dsp.exec_cmd("~/.config/hypr/toggle-desktop.sh"))
+hl.bind(mainMod .. " + Q", hl.dsp.exec_cmd("~/Projects/monitor-switch/monitor-switch.sh --display 1:dp --display 3:dp"))
+hl.bind(mainMod .. " + W", hl.dsp.exec_cmd("~/Projects/monitor-switch/monitor-switch.sh --display 1:hdmi --display 3:hdmi-2"))
+hl.bind(mainMod .. " + L", hl.dsp.exec_cmd("hyprlock")) -- lockscreen
 
 -- Move focus with mainMod + arrow keys
 hl.bind(mainMod .. " + left", hl.dsp.focus({ direction = "left" }))
@@ -250,8 +253,6 @@ hl.bind("XF86AudioPause", hl.dsp.exec_cmd("playerctl play-pause"), { locked = tr
 hl.bind("XF86AudioPlay", hl.dsp.exec_cmd("playerctl play-pause"), { locked = true })
 hl.bind("XF86AudioPrev", hl.dsp.exec_cmd("playerctl previous"), { locked = true })
 
--- Lockscreen
-hl.bind(mainMod .. " + L", hl.dsp.exec_cmd("hyprlock"))
 
 
 --------------------------------

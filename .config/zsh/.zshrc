@@ -100,6 +100,7 @@ source "$ZDOTDIR/prompt.zsh"
 
 
 # Custom
+touch $ZDOTDIR/custom.zsh
 source "$ZDOTDIR/custom.zsh"
 
 
