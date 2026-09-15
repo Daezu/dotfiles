@@ -286,6 +286,7 @@
       ansible.builtin.get_url:
         url: "https://github.com/neovim/neovim/releases/latest/download/nvim-linux-{{ nvim_arch_map[ansible_facts.architecture] }}.tar.gz"
         dest: /tmp/nvim.tar.gz
+        timeout: 120
         mode: "0644"
     - name: Extract nvim into {{ ansible_facts.env.HOME }}/.local (merging bin/ and share/)
       ansible.builtin.unarchive:
