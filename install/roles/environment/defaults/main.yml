@@ -1,0 +1,3 @@
+---
+system_environment_vars: {}
+environment_vars_file: "{{ (playbook_dir + '/../environment.yml') | realpath }}"

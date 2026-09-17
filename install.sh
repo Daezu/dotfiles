@@ -13,10 +13,11 @@ TARGET_HOST=""
 SSH_PORT=""
 SSH_USER=""
 WSL_USER=""
+LOCAL_FILE=""
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [--symlink|--copy] [--skip-packages] [-i HOST] [-p PORT] [-u USER]
+Usage: $(basename "$0") [--symlink|--copy] [--skip-packages] [-i HOST] [-p PORT] [-u USER] [--local-file=PATH]
        $(basename "$0") --wsl=WIN_USER
 
   --symlink        Symlink dotfiles into \$HOME (default)
@@ -25,6 +26,8 @@ Usage: $(basename "$0") [--symlink|--copy] [--skip-packages] [-i HOST] [-p PORT]
   -i HOST          Target host to install on over SSH (default: localhost, no SSH)
   -p PORT          SSH port to use with -i (default: 22)
   -u USER          SSH user to use with -i (default: your ssh client's own default)
+  --local-file=PATH  YAML file of vars to write into /etc/environment
+                    (default: environment.yml at the repo root)
   --wsl=WIN_USER   Also configure the Windows Terminal font for WSL, as
                     Windows user WIN_USER, after the regular dotfiles install
   -h, --help       Show this help
@@ -38,6 +41,9 @@ while [[ $# -gt 0 ]]; do
     --skip-packages) SKIP_PACKAGES=true ;;
     --wsl=*)
       WSL_USER="${1#--wsl=}"
+      ;;
+    --local-file=*)
+      LOCAL_FILE="${1#--local-file=}"
       ;;
     -i)
       shift
@@ -74,6 +80,12 @@ if [[ -z "$TARGET_HOST" ]]; then
 fi
 [[ -n "$SSH_PORT" ]] && EXTRA_VARS+=", \"ansible_port\": $SSH_PORT"
 [[ -n "$SSH_USER" ]] && EXTRA_VARS+=", \"ansible_user\": \"$SSH_USER\""
+if [[ -n "$LOCAL_FILE" ]]; then
+  # Resolve against the caller's cwd (not SCRIPT_DIR) so relative paths like
+  # test/example.yaml behave the way the user typed them.
+  LOCAL_FILE="$(realpath -m "$LOCAL_FILE")"
+  EXTRA_VARS+=", \"environment_vars_file\": \"$LOCAL_FILE\""
+fi
 EXTRA_VARS+="}"
 
 PROMPT_TARGET="$TARGET_HOST"

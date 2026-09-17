@@ -1,0 +1,7 @@
+---
+# Copy this file to environment.yml (gitignored, not committed) and fill
+# in machine-specific variables to write into /etc/environment. To use a file
+# at a different path/name instead, pass --local-file=PATH to install.sh.
+system_environment_vars:
+  EDITOR: nvim
+  # MY_VAR: my_value

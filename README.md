@@ -31,7 +31,7 @@ This symlinks every top-level entry in this repo (and every app folder under `.c
 ### Options
 
 ```
-./install.sh [--symlink|--copy] [--skip-packages] [-i HOST] [-p PORT] [-u USER]
+./install.sh [--symlink|--copy] [--skip-packages] [-i HOST] [-p PORT] [-u USER] [--local-file=PATH]
 
   --symlink        Symlink dotfiles into $HOME (default)
   --copy           Copy dotfiles into $HOME instead of symlinking
@@ -39,9 +39,26 @@ This symlinks every top-level entry in this repo (and every app folder under `.c
   -i HOST          Target host to install on over SSH (default: localhost)
   -p PORT          SSH port to use with -i (default: 22)
   -u USER          SSH user to use with -i
+  --local-file=PATH  YAML file of vars to write into /etc/environment
+                    (default: environment.yml at the repo root)
 ```
 
 Running against a remote host (`-i HOST`) stages this repo on that host over SSH and installs there — no shared filesystem needed.
+
+### Per-machine environment variables
+
+The first thing the playbook does, before anything else, is write custom key/value
+pairs into `/etc/environment`. Those values are machine-specific and never committed:
+copy `environment.yml.example` to `environment.yml` (gitignored) and fill in whatever
+vars this machine needs, e.g.:
+
+```yaml
+system_environment_vars:
+  EDITOR: nvim
+```
+
+To keep the values somewhere else entirely, point at any file with
+`--local-file=PATH` instead of using `environment.yml`.
 
 ### Requirements
 
@@ -64,9 +81,12 @@ Running against a remote host (`-i HOST`) stages this repo on that host over SSH
 ```
 .
 ├── .config/            # app configs, symlinked into ~/.config/<app>
+├── environment.yml.example  # template for machine-specific /etc/environment vars
+├── environment.yml      # your copy of the above, gitignored (not committed)
 ├── install/
-│   ├── playbook.yml     # entry point: dotfiles + dependencies roles
+│   ├── playbook.yml     # entry point: environment + dotfiles + dependencies roles
 │   └── roles/
+│       ├── environment/  # writes environment.yml's vars into /etc/environment first
 │       ├── dotfiles/     # discovers + links/copies repo contents into $HOME
 │       ├── dependencies/ # installs CLI tools these configs assume are present
 │       └── wsl/          # Windows Terminal font setup (WSL only, run manually)

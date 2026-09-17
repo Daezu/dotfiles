@@ -20,3 +20,5 @@ dotfiles_exclude_names:
   - roles
   - install
   - .config
+  - environment.yml
+  - environment.yml.example

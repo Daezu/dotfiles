@@ -2,6 +2,9 @@
 # custom shell configs/env/...
 .config/zsh/custom.zsh
 
+# per-machine environment variables (see environment.yml.example)
+/environment.yml
+
 
 # matugen/style/color files
 .config/gtk-3.0/colors.css

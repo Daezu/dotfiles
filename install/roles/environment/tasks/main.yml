@@ -1,0 +1,26 @@
+---
+- name: Check for a local environment vars file
+  ansible.builtin.stat:
+    path: "{{ environment_vars_file }}"
+  delegate_to: localhost
+  become: false
+  register: environment_vars_file_stat
+
+- name: Load local environment vars
+  ansible.builtin.include_vars:
+    file: "{{ environment_vars_file }}"
+  when: environment_vars_file_stat.stat.exists
+
+- name: Ensure custom environment variables are present in /etc/environment
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/environment
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+    regexp: '^{{ item.key }}='
+    line: '{{ item.key }}="{{ item.value }}"'
+  loop: "{{ system_environment_vars | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
