@@ -58,6 +58,13 @@
   args:
     executable: /bin/bash
 
+- name: Set npm registry if env var is set
+  ansible.builtin.shell: |
+    set -a; . /etc/environment; set +a
+    source "{{ ansible_facts.env.HOME }}/.nvm/nvm.sh" && [ -n "{$NPM_CONFIG_REGISTRY:-}" ] && npm config set registry $NPM_CONFIG_REGISTRY
+  args:
+    executable: /bin/bash
+
 - name: Install corepack (no longer bundled with Node 25+)
   ansible.builtin.shell: >
     source "{{ ansible_facts.env.HOME }}/.nvm/nvm.sh" && npm install -g corepack
