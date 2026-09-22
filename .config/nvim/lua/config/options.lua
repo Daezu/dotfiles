@@ -12,7 +12,7 @@ vim.opt.termguicolors = true
 
 --vim.opt.guicursor = "a:ver25"
 
-
+vim.o.winborder = "rounded"
 
 
 
