@@ -28,8 +28,12 @@ export STARSHIP_CONFIG="$ZDOTDIR/starship.toml"
 # ---------- PNPM ----------
 export PNPM_HOME="$HOME/.local/share/pnpm"
 
-# ---------- OTHER ----------
-export DEVPOD_IDE="none"
+# ---------- DEVSY ----------
+export DEVSY_IDE="none"
+export DEVSY_PROVIDER="podman"
+export DEVSY_SSH_CONFIG_INCLUDE_PATH="$HOME/.ssh/config.d/devsy"
+devsy context set -o SSH_CONFIG_INCLUDE_PATH=$DEVSY_SSH_CONFIG_INCLUDE_PATH
+#export DEVSY_DEBUG=true
 # Podman compose
 export DOCKER_HOST="unix://$XDG_RUNTIME_DIR/podman/podman.sock"
 
