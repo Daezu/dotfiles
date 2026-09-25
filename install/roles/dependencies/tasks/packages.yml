@@ -74,7 +74,7 @@
 
 - name: Enable corepack (manages pnpm)
   ansible.builtin.shell: >
-    source "{{ ansible_facts.env.HOME }}/.nvm/nvm.sh" && corepack enable pnpm && corepack use pnpm@latest
+    source "{{ ansible_facts.env.HOME }}/.nvm/nvm.sh" && corepack enable pnpm && corepack use pnpm
   args:
     executable: /bin/bash
   changed_when: false
