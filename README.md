@@ -32,6 +32,7 @@ This symlinks every top-level entry in this repo (and every app folder under `.c
 
 ```
 ./install.sh [--symlink|--copy] [--skip-packages] [-i HOST] [-p PORT] [-u USER] [--local-file=PATH]
+             [--pnpm-version VERSION]
 
   --symlink        Symlink dotfiles into $HOME (default)
   --copy           Copy dotfiles into $HOME instead of symlinking
@@ -41,9 +42,27 @@ This symlinks every top-level entry in this repo (and every app folder under `.c
   -u USER          SSH user to use with -i
   --local-file=PATH  YAML file of vars to write into /etc/environment
                     (default: environment.yml at the repo root)
+  --pnpm-version VERSION
+                    Pin the pnpm version corepack activates, e.g. 12.4.0
+                    (default: whatever corepack resolves on its own)
 ```
 
 Running against a remote host (`-i HOST`) stages this repo on that host over SSH and installs there — no shared filesystem needed.
+
+### Pinning pnpm
+
+By default the playbook lets corepack pick the pnpm version (`corepack use pnpm`).
+A host behind a custom npm registry that doesn't carry that version needs a
+specific one instead, which is per-host and so never committed here:
+
+```sh
+./install.sh -i myhost --pnpm-version 12.4.0
+```
+
+That runs `corepack prepare pnpm@12.4.0 --activate` on the target. Per-machine
+`environment.yml` files can also set `pnpm_version: "12.4.0"` at the top level
+to get the same effect without passing the flag every time; the flag wins over
+the file.
 
 ### Per-machine environment variables
 

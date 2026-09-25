@@ -14,10 +14,12 @@ SSH_PORT=""
 SSH_USER=""
 WSL_USER=""
 LOCAL_FILE=""
+PNPM_VERSION=""
 
 usage() {
   cat <<EOF
 Usage: $(basename "$0") [--symlink|--copy] [--skip-packages] [-i HOST] [-p PORT] [-u USER] [--local-file=PATH]
+                        [--pnpm-version VERSION]
        $(basename "$0") --wsl=WIN_USER
 
   --symlink        Symlink dotfiles into \$HOME (default)
@@ -28,6 +30,9 @@ Usage: $(basename "$0") [--symlink|--copy] [--skip-packages] [-i HOST] [-p PORT]
   -u USER          SSH user to use with -i (default: your ssh client's own default)
   --local-file=PATH  YAML file of vars to write into /etc/environment
                     (default: environment.yml at the repo root)
+  --pnpm-version VERSION
+                    Pin the pnpm version corepack activates, e.g. 12.4.0
+                    (default: whatever corepack resolves on its own)
   --wsl=WIN_USER   Also configure the Windows Terminal font for WSL, as
                     Windows user WIN_USER, after the regular dotfiles install
   -h, --help       Show this help
@@ -44,6 +49,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --local-file=*)
       LOCAL_FILE="${1#--local-file=}"
+      ;;
+    --pnpm-version=*)
+      PNPM_VERSION="${1#--pnpm-version=}"
+      ;;
+    --pnpm-version)
+      shift
+      [[ $# -gt 0 ]] || { echo "--pnpm-version requires a version argument" >&2; usage >&2; exit 1; }
+      PNPM_VERSION="$1"
       ;;
     -i)
       shift
@@ -86,6 +99,7 @@ if [[ -n "$LOCAL_FILE" ]]; then
   LOCAL_FILE="$(realpath -m "$LOCAL_FILE")"
   EXTRA_VARS+=", \"environment_vars_file\": \"$LOCAL_FILE\""
 fi
+[[ -n "$PNPM_VERSION" ]] && EXTRA_VARS+=", \"pnpm_version\": \"$PNPM_VERSION\""
 EXTRA_VARS+="}"
 
 PROMPT_TARGET="$TARGET_HOST"

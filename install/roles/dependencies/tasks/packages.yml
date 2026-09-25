@@ -72,9 +72,13 @@
     executable: /bin/bash
   changed_when: false
 
+# Without pnpm_version corepack resolves the version itself, which fails on a
+# host whose npm registry doesn't carry it; pass --pnpm-version X.Y.Z to
+# install.sh to activate a version that registry does have instead.
 - name: Enable corepack (manages pnpm)
   ansible.builtin.shell: >
-    source "{{ ansible_facts.env.HOME }}/.nvm/nvm.sh" && corepack enable pnpm && corepack use pnpm
+    source "{{ ansible_facts.env.HOME }}/.nvm/nvm.sh" && corepack enable pnpm &&
+    {{ 'corepack prepare pnpm@' ~ pnpm_version ~ ' --activate' if pnpm_version else 'corepack use pnpm' }}
   args:
     executable: /bin/bash
   changed_when: false

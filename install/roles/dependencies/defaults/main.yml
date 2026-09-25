@@ -2,6 +2,11 @@
 skip_packages: false
 local_bin: "{{ ansible_facts.env.HOME }}/.local/bin"
 
+# Empty: let corepack resolve pnpm itself. Set per host via
+# install.sh --pnpm-version X.Y.Z (never pinned in the repo, since the
+# version that works depends on the npm registry the host talks to).
+pnpm_version: ""
+
 # GitHub release architecture name, per tool (their asset-naming conventions differ)
 eza_arch_map:
   x86_64: x86_64
