@@ -162,7 +162,7 @@ hl.config({
         accel_profile = "flat",
         float_switch_override_focus = 0,
 
-        sensitivity = 0, -- -1.0 - 1.0, 0 means no modification.
+        sensitivity = -0.3, -- -1.0 - 1.0, 0 means no modification.
 
         touchpad = {
             natural_scroll = false,
