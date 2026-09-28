@@ -26,16 +26,25 @@ Everything is driven by a small Ansible playbook under `install/`; `install.sh` 
 ./install.sh
 ```
 
-This symlinks every top-level entry in this repo (and every app folder under `.config/`) into the right place under `$HOME`, installing any missing CLI dependencies (`eza`, `bat`, `fd`, `starship`, `yazi`, `nvim`, `rustup`, `nvm`/Node, …) along the way. Anything already present at a destination gets backed up first, under `~/.dotfiles_backup/<timestamp>/`.
+This symlinks every top-level entry in this repo (and every CLI app folder under `.config/`) into the right place under `$HOME`, installing any missing CLI dependencies (`eza`, `bat`, `fd`, `starship`, `yazi`, `nvim`, `rustup`, `nvm`/Node, …) along the way. Anything already present at a destination gets backed up first, under `~/.dotfiles_backup/<timestamp>/`.
+
+By default only CLI-relevant stuff is set up, so the same command works on servers and devcontainers. On a desktop, add `--gui` to also set up the graphical side (Hyprland, Waybar, Kitty, GTK, ...):
+
+```sh
+./install.sh --gui
+```
+
+GUI-only work is flagged with the Ansible tag `gui`; without `--gui`, `install.sh` runs the playbook with `--skip-tags gui`. To make something GUI-only, add `tags: [gui]` to its task, or — for a config folder under `.config/` — add its name to `dotfiles_gui_names` in `install/roles/dotfiles/defaults/main.yml`.
 
 ### Options
 
 ```
-./install.sh [--symlink|--copy] [--skip-packages] [-i HOST] [-p PORT] [-u USER] [--local-file=PATH]
+./install.sh [--symlink|--copy] [--gui] [--skip-packages] [-i HOST] [-p PORT] [-u USER] [--local-file=PATH]
              [--pnpm-version VERSION]
 
   --symlink        Symlink dotfiles into $HOME (default)
   --copy           Copy dotfiles into $HOME instead of symlinking
+  --gui            Also set up GUI stuff (tasks tagged 'gui'); default is CLI-only
   --skip-packages  Don't install missing CLI tool dependencies
   -i HOST          Target host to install on over SSH (default: localhost)
   -p PORT          SSH port to use with -i (default: 22)

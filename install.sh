@@ -9,6 +9,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODE="symlink"
 SKIP_PACKAGES=false
+GUI=false
 TARGET_HOST=""
 SSH_PORT=""
 SSH_USER=""
@@ -18,12 +19,14 @@ PNPM_VERSION=""
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [--symlink|--copy] [--skip-packages] [-i HOST] [-p PORT] [-u USER] [--local-file=PATH]
+Usage: $(basename "$0") [--symlink|--copy] [--gui] [--skip-packages] [-i HOST] [-p PORT] [-u USER] [--local-file=PATH]
                         [--pnpm-version VERSION]
        $(basename "$0") --wsl=WIN_USER
 
   --symlink        Symlink dotfiles into \$HOME (default)
   --copy           Copy dotfiles into \$HOME instead of symlinking
+  --gui            Also set up GUI stuff: tasks tagged 'gui' (Hyprland, Waybar,
+                    GTK, ...). Without it only CLI-relevant stuff is set up
   --skip-packages  Don't install missing CLI tool dependencies (eza, bat, fd, ...)
   -i HOST          Target host to install on over SSH (default: localhost, no SSH)
   -p PORT          SSH port to use with -i (default: 22)
@@ -43,6 +46,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --symlink) MODE="symlink" ;;
     --copy) MODE="copy" ;;
+    --gui) GUI=true ;;
     --skip-packages) SKIP_PACKAGES=true ;;
     --wsl=*)
       WSL_USER="${1#--wsl=}"
@@ -102,6 +106,10 @@ fi
 [[ -n "$PNPM_VERSION" ]] && EXTRA_VARS+=", \"pnpm_version\": \"$PNPM_VERSION\""
 EXTRA_VARS+="}"
 
+# Tasks tagged `gui` (hyprland, waybar, ... configs) only run with --gui.
+ANSIBLE_ARGS=()
+[[ "$GUI" == true ]] || ANSIBLE_ARGS+=(--skip-tags gui)
+
 PROMPT_TARGET="$TARGET_HOST"
 [[ -n "$SSH_PORT" ]] && PROMPT_TARGET+=":$SSH_PORT"
 [[ -n "$SSH_USER" ]] && PROMPT_TARGET="$SSH_USER@$PROMPT_TARGET"
@@ -110,7 +118,7 @@ read -p "Run installation on $PROMPT_TARGET? (y/n)" -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
-    ansible-playbook -i "$TARGET_HOST," "$SCRIPT_DIR/install/playbook.yml" -e "$EXTRA_VARS" --ask-become-pass
+    ansible-playbook -i "$TARGET_HOST," "$SCRIPT_DIR/install/playbook.yml" -e "$EXTRA_VARS" "${ANSIBLE_ARGS[@]}" --ask-become-pass
     if [[ -n "$WSL_USER" ]]; then
         ansible-playbook "$SCRIPT_DIR/install/roles/wsl/tasks/main.yml" -e "windows_user=$WSL_USER" --ask-become-pass
     fi

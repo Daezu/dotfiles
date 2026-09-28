@@ -94,12 +94,23 @@
     label: "{{ item.path | basename }}"
   when: (item.path | basename) not in dotfiles_exclude_names
 
-- name: Add .config app entries to the placement list
+- name: Add CLI .config app entries to the placement list
   ansible.builtin.set_fact:
     dotfiles_items: "{{ dotfiles_items + [{'src': item.path, 'dest': ansible_facts.env.HOME ~ '/.config/' ~ (item.path | basename)}] }}"
   loop: "{{ config_entries.files }}"
   loop_control:
     label: "{{ item.path | basename }}"
+  when: (item.path | basename) not in dotfiles_gui_names
+
+# Skipped unless install.sh --gui (which stops passing --skip-tags gui).
+- name: Add GUI .config app entries to the placement list
+  ansible.builtin.set_fact:
+    dotfiles_items: "{{ dotfiles_items + [{'src': item.path, 'dest': ansible_facts.env.HOME ~ '/.config/' ~ (item.path | basename)}] }}"
+  loop: "{{ config_entries.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  when: (item.path | basename) in dotfiles_gui_names
+  tags: [gui]
 
 - name: Check current state of each destination
   ansible.builtin.stat:
