@@ -24,3 +24,12 @@
   loop: "{{ system_environment_vars | dict2items }}"
   loop_control:
     label: "{{ item.key }}"
+
+# /etc/environment is only read by PAM at login; drop the persistent SSH
+# connection so the next task opens a fresh session with the new vars.
+- name: Reconnect so the new /etc/environment is loaded by a fresh login session
+  ansible.builtin.meta: reset_connection
+
+- name: Refresh env facts from the new session
+  ansible.builtin.setup:
+    gather_subset: [env]

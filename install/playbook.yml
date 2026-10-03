@@ -2,6 +2,9 @@
 - name: Install dotfiles and their dependencies
   hosts: all
   roles:
-    - environment
+    # Always first: writes /etc/environment and reconnects so the vars are
+    # loaded for every role after it.
+    - role: environment
+      tags: [always]
     - dotfiles
     - dependencies
