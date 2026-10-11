@@ -1,6 +1,9 @@
 ---
 - name: Install dotfiles and their dependencies
   hosts: all
+  # Everything the roles use (env, pkg_mgr, architecture, date_time) is in
+  # the minimal subset; skip the slower hardware/network fact collection.
+  gather_subset: ['!all']
   roles:
     # Always first: writes /etc/environment and reconnects so the vars are
     # loaded for every role after it.

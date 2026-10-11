@@ -32,3 +32,10 @@ dotfiles_gui_names:
   - nwg-look
   - qt6ct
   - wireplumber
+
+# Never shipped to a remote host's staging dir: VCS metadata and the zsh
+# plugin clones (re-fetched on the target by the dependencies role).
+dotfiles_stage_exclude:
+  - .git
+  - ./.config/zsh/plugins
+  - ./.config/zsh/.zcompdump

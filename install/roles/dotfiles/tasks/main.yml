@@ -16,26 +16,30 @@
     state: directory
     mode: '0755'
 
+# Ship the repo as a single tarball rather than file-by-file copies, which
+# cost one SSH round trip (plus checksum) per file.
 - name: Stage this repo on the remote host (dotfiles_dir only exists on the controller)
   when: dotfiles_is_remote
   block:
-    - name: Discover top-level repo entries on the controller
-      connection: local
-      ansible.builtin.find:
-        paths: "{{ dotfiles_dir }}"
-        file_type: any
-        hidden: true
-        recurse: false
-      register: controller_top_level_entries
+    - name: Create a temp file for the repo tarball on the controller
+      ansible.builtin.tempfile:
+        suffix: .tar.gz
+      delegate_to: localhost
+      become: false
+      register: dotfiles_tarball
+      changed_when: false
 
-    - name: Discover .config app entries on the controller
-      connection: local
-      ansible.builtin.find:
-        paths: "{{ dotfiles_dir }}/.config"
-        file_type: any
-        hidden: true
-        recurse: false
-      register: controller_config_entries
+    - name: Pack the repo on the controller
+      ansible.builtin.command:
+        argv: >-
+          {{ ['tar', '-czf', dotfiles_tarball.path]
+             + (dotfiles_stage_exclude | map('regex_replace', '^', '--exclude=') | list)
+             + (dotfiles_exclude_names | reject('equalto', '.config')
+                | map('regex_replace', '^', '--exclude=./') | list)
+             + ['-C', dotfiles_dir, '.'] }}
+      delegate_to: localhost
+      become: false
+      changed_when: false
 
     - name: Ensure the staging directory exists
       ansible.builtin.file:
@@ -43,24 +47,18 @@
         state: directory
         mode: "0755"
 
-    - name: Copy top-level repo entries into the staging directory
-      ansible.builtin.copy:
-        src: "{{ item.path }}"
-        dest: "{{ dotfiles_stage_dir }}/"
-        mode: preserve
-      loop: "{{ controller_top_level_entries.files }}"
-      loop_control:
-        label: "{{ item.path | basename }}"
-      when: (item.path | basename) not in dotfiles_exclude_names
+    - name: Unpack the repo into the staging directory
+      ansible.builtin.unarchive:
+        src: "{{ dotfiles_tarball.path }}"
+        dest: "{{ dotfiles_stage_dir }}"
 
-    - name: Copy .config app entries into the staging directory
-      ansible.builtin.copy:
-        src: "{{ item.path }}"
-        dest: "{{ dotfiles_stage_dir }}/.config/"
-        mode: preserve
-      loop: "{{ controller_config_entries.files }}"
-      loop_control:
-        label: "{{ item.path | basename }}"
+    - name: Remove the tarball from the controller
+      ansible.builtin.file:
+        path: "{{ dotfiles_tarball.path }}"
+        state: absent
+      delegate_to: localhost
+      become: false
+      changed_when: false
 
     - name: Use the staged copy as the dotfiles source for the rest of this run
       ansible.builtin.set_fact:
@@ -82,66 +80,58 @@
     recurse: false
   register: config_entries
 
-- name: Reset placement list
+- name: Build the placement list (top-level and CLI .config entries)
   ansible.builtin.set_fact:
-    dotfiles_items: []
-
-- name: Add top-level entries to the placement list
-  ansible.builtin.set_fact:
-    dotfiles_items: "{{ dotfiles_items + [{'src': item.path, 'dest': ansible_facts.env.HOME ~ '/' ~ (item.path | basename)}] }}"
-  loop: "{{ top_level_entries.files }}"
-  loop_control:
-    label: "{{ item.path | basename }}"
-  when: (item.path | basename) not in dotfiles_exclude_names
-
-- name: Add CLI .config app entries to the placement list
-  ansible.builtin.set_fact:
-    dotfiles_items: "{{ dotfiles_items + [{'src': item.path, 'dest': ansible_facts.env.HOME ~ '/.config/' ~ (item.path | basename)}] }}"
-  loop: "{{ config_entries.files }}"
-  loop_control:
-    label: "{{ item.path | basename }}"
-  when: (item.path | basename) not in dotfiles_gui_names
+    dotfiles_items: >-
+      {%- set items = [] -%}
+      {%- for f in top_level_entries.files if (f.path | basename) not in dotfiles_exclude_names -%}
+      {%- set _ = items.append({'src': f.path, 'dest': ansible_facts.env.HOME ~ '/' ~ (f.path | basename)}) -%}
+      {%- endfor -%}
+      {%- for f in config_entries.files if (f.path | basename) not in dotfiles_gui_names -%}
+      {%- set _ = items.append({'src': f.path, 'dest': ansible_facts.env.HOME ~ '/.config/' ~ (f.path | basename)}) -%}
+      {%- endfor -%}
+      {{ items }}
 
 # Skipped unless install.sh --gui (which stops passing --skip-tags gui).
 - name: Add GUI .config app entries to the placement list
   ansible.builtin.set_fact:
-    dotfiles_items: "{{ dotfiles_items + [{'src': item.path, 'dest': ansible_facts.env.HOME ~ '/.config/' ~ (item.path | basename)}] }}"
-  loop: "{{ config_entries.files }}"
-  loop_control:
-    label: "{{ item.path | basename }}"
-  when: (item.path | basename) in dotfiles_gui_names
+    dotfiles_items: >-
+      {%- set items = [] -%}
+      {%- for f in config_entries.files if (f.path | basename) in dotfiles_gui_names -%}
+      {%- set _ = items.append({'src': f.path, 'dest': ansible_facts.env.HOME ~ '/.config/' ~ (f.path | basename)}) -%}
+      {%- endfor -%}
+      {{ dotfiles_items + items }}
   tags: [gui]
 
-- name: Check current state of each destination
-  ansible.builtin.stat:
-    path: "{{ item.dest }}"
-  loop: "{{ dotfiles_items }}"
-  loop_control:
-    label: "{{ item.dest }}"
-  register: dest_stats
-
+# One shell pass over all destinations instead of a stat + mv task per item.
 - name: Back up destinations that exist and aren't already the correct link
   ansible.builtin.shell: |
     set -e
-    rel="{{ item.item.dest }}"
-    rel="${rel#{{ ansible_facts.env.HOME }}/}"
-    mkdir -p "{{ backup_dir }}/$(dirname "$rel")"
-    mv "{{ item.item.dest }}" "{{ backup_dir }}/$rel"
-  loop: "{{ dest_stats.results }}"
-  loop_control:
-    label: "{{ item.item.dest }}"
-  when: >
-    item.stat.exists and
-    not (dotfiles_mode == 'symlink' and item.stat.islnk and item.stat.lnk_source == item.item.src)
+    while IFS=$'\t' read -r src dest; do
+      [ -e "$dest" ] || [ -L "$dest" ] || continue
+      if [ "{{ dotfiles_mode }}" = symlink ] && [ -L "$dest" ] && [ "$(readlink "$dest")" = "$src" ]; then
+        continue
+      fi
+      rel="${dest#{{ ansible_facts.env.HOME }}/}"
+      mkdir -p "{{ backup_dir }}/$(dirname "$rel")"
+      mv "$dest" "{{ backup_dir }}/$rel"
+      echo "backed up $dest"
+    done
+  args:
+    executable: /bin/bash
+    stdin: |
+      {% for item in dotfiles_items %}
+      {{ item.src }}	{{ item.dest }}
+      {% endfor %}
+  register: dotfiles_backup
+  changed_when: dotfiles_backup.stdout != ''
 
 - name: Ensure parent directories of each destination exist
   ansible.builtin.file:
-    path: "{{ item.dest | dirname }}"
+    path: "{{ item }}"
     state: directory
     mode: "0755"
-  loop: "{{ dotfiles_items }}"
-  loop_control:
-    label: "{{ item.dest | dirname }}"
+  loop: "{{ dotfiles_items | map(attribute='dest') | map('dirname') | unique }}"
 
 - name: Symlink dotfiles into place
   ansible.builtin.file:

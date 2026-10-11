@@ -2,10 +2,42 @@
 skip_packages: false
 local_bin: "{{ ansible_facts.env.HOME }}/.local/bin"
 
-# Empty: let corepack resolve pnpm itself. Set per host via
+# Empty: let npm resolve the pnpm version itself. Set per host via
 # install.sh --pnpm-version X.Y.Z (never pinned in the repo, since the
 # version that works depends on the npm registry the host talks to).
 pnpm_version: ""
+
+# Passed to `nvm install`; only used when no node is installed yet.
+node_version: node
+
+# Download the stable rust toolchain via rustup (install.sh --rust). Off by
+# default: it's a large download and nothing in these dotfiles needs it.
+install_rust_toolchain: false
+
+# Installed in a single package-manager transaction (see tasks/packages.yml)
+packages_common:
+  - curl
+  - clang
+  - git
+  - unzip
+  - rustup
+  - starship
+  - zsh
+  - fzf
+  - bat
+  - eza
+  - lf
+  - ripgrep
+packages_apt:
+  - build-essential
+  - ncat
+  - fd-find
+packages_pacman:
+  - base-devel
+  - nmap
+  - fd
+  - yazi
+  - tree-sitter-cli
 
 # GitHub release architecture name, per tool (their asset-naming conventions differ)
 eza_arch_map:
@@ -17,6 +49,9 @@ lf_arch_map:
 yazi_arch_map:
   x86_64: x86_64
   aarch64: aarch64
+tree_sitter_arch_map:
+  x86_64: x64
+  aarch64: arm64
 nvim_arch_map:
   x86_64: x86_64
   aarch64: arm64

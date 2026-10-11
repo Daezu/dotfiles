@@ -12,115 +12,23 @@
     state: directory
     mode: "0755"
 
+# One package-manager transaction for everything (package lists live in
+# defaults/main.yml) instead of one per tool.
+- name: Install packages - apt
+  become: true
+  ansible.builtin.apt:
+    name: "{{ packages_common + packages_apt }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  when: ansible_facts.pkg_mgr == 'apt'
 
-- name: Install prerequisites
+- name: Install packages - pacman
   become: true
   ansible.builtin.package:
-    name: 
-      - curl
-      - clang
-      - git
-      - unzip
+    name: "{{ packages_common + packages_pacman }}"
     state: present
-  when: ansible_facts.pkg_mgr in ['apt', 'pacman']
-
-- name: Install prerequisites - pacman
-  become: true
-  ansible.builtin.package:
-    name: 
-      - base-devel
-    state: present
-  when: ansible_facts.pkg_mgr in ['pacman']
-
-- name: Install prerequisites - apt
-  become: true
-  ansible.builtin.package:
-    name: 
-      - build-essential
-    state: present
-  when: ansible_facts.pkg_mgr in ['apt']
-
-
-
-
-
-
-# --- nodejs: install nodejs & pnpm ---
-- name: Install nvm
-  ansible.builtin.shell: >
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.6/install.sh | bash
-  args:
-    creates: "{{ ansible_facts.env.HOME }}/.nvm/nvm.sh"
-
-- name: Install Node
-  ansible.builtin.shell: >
-    source "{{ ansible_facts.env.HOME }}/.nvm/nvm.sh" && nvm install node
-  args:
-    executable: /bin/bash
-
-- name: Set npm registry if env var is set
-  ansible.builtin.shell: |
-    set -a; . /etc/environment; set +a
-    source "{{ ansible_facts.env.HOME }}/.nvm/nvm.sh" && [ -n "{$NPM_CONFIG_REGISTRY:-}" ] && npm config set registry $NPM_CONFIG_REGISTRY
-  args:
-    executable: /bin/bash
-
-# Without pnpm_version npm resolves the version itself, which fails on a
-# host whose npm registry doesn't carry it; pass --pnpm-version X.Y.Z to
-# install.sh to activate a version that registry does have instead.
-- name: Install pnpm
-  ansible.builtin.shell: >
-    source "{{ ansible_facts.env.HOME }}/.nvm/nvm.sh" && 
-    {{ 'npm install -g pnpm@' ~ pnpm_version if pnpm_version else 'npm install -g pnpm' }}
-  args:
-    executable: /bin/bash
-  changed_when: false
-
-# --- rust: no apt/pacman package, official installer only ---
-
-- name: Install rustup
-  block:
-    - name: Install rustup
-      become: true
-      ansible.builtin.package:
-        name: rustup
-        state: present
-      when: ansible_facts.pkg_mgr in ['apt', 'pacman']
-    - name: Check current rustup default toolchain
-      ansible.builtin.command: rustup show active-toolchain
-      register: rustup_active
-      changed_when: false
-      failed_when: false
-    - name: Set rustup default
-      ansible.builtin.command: rustup default stable
-      when: >
-        rustup_active.rc != 0 or
-        rustup_active.stdout | trim == ''
-
-- name: Check for tree-sitter-cli
-  ansible.builtin.command: "cargo install --list"
-  register: cargo_installed
-  changed_when: false
-  failed_when: false
-
-- name: Install tree-sitter-cli (cargo install)
-  ansible.builtin.command: "cargo install tree-sitter-cli"
-  when: cargo_installed.rc != 0 or 'tree-sitter-cli' not in cargo_installed.stdout
-
-# --- zsh, fzf, ncat, bat, fd: packaged on both apt and pacman ---
-- name: Install starship
-  become: true
-  ansible.builtin.package:
-    name: starship
-    state: present
-  when: ansible_facts.pkg_mgr in ['apt', 'pacman']
-
-- name: Install zsh
-  become: true
-  ansible.builtin.package:
-    name: zsh
-    state: present
-  when: ansible_facts.pkg_mgr in ['apt', 'pacman']
+  when: ansible_facts.pkg_mgr == 'pacman'
 
 - name: Ensure XDG_CONFIG_HOME and ZDOTDIR block is present
   become: true
@@ -141,103 +49,120 @@
         export ZDOTDIR="$XDG_CONFIG_HOME/zsh"
       fi
 
+# --- nodejs: install nodejs & pnpm ---
+- name: Install nvm
+  ansible.builtin.shell: >
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.6/install.sh | bash
+  args:
+    creates: "{{ ansible_facts.env.HOME }}/.nvm/nvm.sh"
 
+# nvm writes alias/default on its first install, so this only runs (and only
+# hits the network) when no node is installed yet.
+- name: Install Node
+  ansible.builtin.shell: >
+    source "{{ ansible_facts.env.HOME }}/.nvm/nvm.sh" && nvm install "{{ node_version }}"
+  args:
+    executable: /bin/bash
+    creates: "{{ ansible_facts.env.HOME }}/.nvm/alias/default"
 
+- name: Set npm registry if env var is set
+  ansible.builtin.shell: |
+    set -a; . /etc/environment; set +a
+    source "{{ ansible_facts.env.HOME }}/.nvm/nvm.sh"
+    if [ -n "${NPM_CONFIG_REGISTRY:-}" ]; then
+      npm config set registry "$NPM_CONFIG_REGISTRY"
+    fi
+  args:
+    executable: /bin/bash
+  changed_when: false
 
+# Without pnpm_version npm resolves the version itself, which fails on a
+# host whose npm registry doesn't carry it; pass --pnpm-version X.Y.Z to
+# install.sh to install a version that registry does have instead.
+- name: Install pnpm
+  ansible.builtin.shell: |
+    source "{{ ansible_facts.env.HOME }}/.nvm/nvm.sh"
+    want="{{ pnpm_version }}"
+    if command -v pnpm >/dev/null && { [ -z "$want" ] || [ "$(pnpm --version)" = "$want" ]; }; then
+      exit 0
+    fi
+    npm install -g "pnpm${want:+@$want}"
+    echo PNPM_INSTALLED
+  args:
+    executable: /bin/bash
+  register: pnpm_install
+  changed_when: "'PNPM_INSTALLED' in pnpm_install.stdout"
 
+# --- rust: the rustup package is installed above; the toolchain itself is a
+# several-hundred-MB download, so only fetch it when asked (install.sh --rust) ---
 
-- name: Install fzf
-  become: true
-  ansible.builtin.package:
-    name: fzf
-    state: present
-  when: ansible_facts.pkg_mgr in ['apt', 'pacman']
+- name: Set up the stable rust toolchain
+  when: install_rust_toolchain | bool
+  block:
+    - name: Check current rustup default toolchain
+      ansible.builtin.command: rustup show active-toolchain
+      register: rustup_active
+      changed_when: false
+      failed_when: false
+    - name: Set rustup default
+      ansible.builtin.command: rustup default stable
+      when: >
+        rustup_active.rc != 0 or
+        rustup_active.stdout | trim == ''
 
-- name: Install ncat/nmap
-  become: true
-  ansible.builtin.package:
-    name: "{{ 'ncat' if ansible_facts.pkg_mgr == 'apt' else 'nmap' }}"
-    state: present
-  when: ansible_facts.pkg_mgr in ['apt', 'pacman']
+# One probe for every tool whose presence decides a fallback install below.
+- name: Look up tools on PATH
+  ansible.builtin.shell: |
+    for t in bat batcat fd fdfind yazi nvim tree-sitter; do
+      p=$(command -v "$t") && echo "$t=$p"
+    done
+    true
+  args:
+    executable: /bin/bash
+  environment:
+    PATH: "{{ local_bin }}:{{ ansible_facts.env.PATH }}"
+  register: tool_probe
+  changed_when: false
 
-- name: Install bat
-  become: true
-  ansible.builtin.package:
-    name: bat
-    state: present
-  when: ansible_facts.pkg_mgr in ['apt', 'pacman']
-
-- name: Install fd
-  become: true
-  ansible.builtin.package:
-    name: "{{ 'fd-find' if ansible_facts.pkg_mgr == 'apt' else 'fd' }}"
-    state: present
-  when: ansible_facts.pkg_mgr in ['apt', 'pacman']
+- name: Record tool paths
+  ansible.builtin.set_fact:
+    tool_paths: >-
+      {{ dict(tool_probe.stdout_lines | map('regex_replace', '=.*$', '')
+              | zip(tool_probe.stdout_lines | map('regex_replace', '^[^=]*=', ''))) }}
 
 # Debian/Ubuntu's `bat`/`fd-find` packages install the binaries as `batcat`/`fdfind`.
-- name: Look for bat/batcat and fd/fdfind on PATH
-  ansible.builtin.command: "command -v {{ item }}"
-  loop: [bat, batcat, fd, fdfind]
-  register: rename_check
-  changed_when: false
-  failed_when: false
-
 - name: Symlink batcat -> bat if needed
   ansible.builtin.file:
-    src: "{{ (rename_check.results | selectattr('item', 'equalto', 'batcat') | first).stdout }}"
+    src: "{{ tool_paths.batcat }}"
     dest: "{{ local_bin }}/bat"
     state: link
-  when: >
-    (rename_check.results | selectattr('item', 'equalto', 'bat') | first).rc != 0 and
-    (rename_check.results | selectattr('item', 'equalto', 'batcat') | first).rc == 0
+  when: "'bat' not in tool_paths and 'batcat' in tool_paths"
 
 - name: Symlink fdfind -> fd if needed
   ansible.builtin.file:
-    src: "{{ (rename_check.results | selectattr('item', 'equalto', 'fdfind') | first).stdout }}"
+    src: "{{ tool_paths.fdfind }}"
     dest: "{{ local_bin }}/fd"
     state: link
-  when: >
-    (rename_check.results | selectattr('item', 'equalto', 'fd') | first).rc != 0 and
-    (rename_check.results | selectattr('item', 'equalto', 'fdfind') | first).rc == 0
+  when: "'fd' not in tool_paths and 'fdfind' in tool_paths"
 
-# --- eza / lf / yazi: packaged on pacman; GitHub release binary elsewhere ---
+# --- tree-sitter / yazi: packaged on pacman; GitHub release binary elsewhere ---
 
-- name: Install eza, lf
-  become: true
-  ansible.builtin.package:
-    name:
-      - eza
-      - lf
-    state: present
-  when: ansible_facts.pkg_mgr in ['apt', 'pacman']
+- name: Download+install tree-sitter CLI from GitHub release (no apt package)
+  ansible.builtin.get_url:
+    url: "https://github.com/tree-sitter/tree-sitter/releases/latest/download/tree-sitter-linux-{{ tree_sitter_arch_map[ansible_facts.architecture] }}.gz"
+    dest: /tmp/tree-sitter.gz
+    mode: "0644"
+  when: "'tree-sitter' not in tool_paths"
 
-- name: Install yazi via pacman
-  become: true
-  ansible.builtin.package:
-    name:
-      - yazi
-    state: present
-  when: ansible_facts.pkg_mgr == 'pacman'
-  
-- name: Check for eza/lf/yazi
-  ansible.builtin.command: "command -v {{ item }}"
-  loop: [eza, lf, yazi]
-  register: release_tool_check
-  changed_when: false
-  failed_when: false
-
+- name: Unpack tree-sitter CLI into {{ local_bin }}
+  ansible.builtin.shell: >
+    gunzip -c /tmp/tree-sitter.gz > "{{ local_bin }}/tree-sitter" &&
+    chmod 0755 "{{ local_bin }}/tree-sitter"
+  when: "'tree-sitter' not in tool_paths"
 
 - name: Download+install yazi from GitHub release (no apt package)
-  when: >
-    ansible_facts.pkg_mgr != 'pacman' and
-    (release_tool_check.results | selectattr('item', 'equalto', 'yazi') | first).rc != 0
+  when: "'yazi' not in tool_paths"
   block:
-    - name: Ensure unzip is present
-      become: true
-      ansible.builtin.package:
-        name: unzip
-        state: present
-      when: ansible_facts.pkg_mgr in ['apt', 'pacman']
     - name: Download yazi release archive
       ansible.builtin.get_url:
         url: "https://github.com/sxyazi/yazi/releases/latest/download/yazi-{{ yazi_arch_map[ansible_facts.architecture] }}-unknown-linux-gnu.zip"
@@ -271,20 +196,14 @@
 # share/nvim/runtime (breaks require('vim.uri'), :syntax, etc. at startup).
 # Detect that specific state, not just whether the binary exists.
 
-- name: Check for nvim
-  ansible.builtin.command: command -v nvim
-  register: nvim_which
-  changed_when: false
-  failed_when: false
-
 - name: Check nvim's runtime marker (only meaningful if nvim exists)
   ansible.builtin.stat:
-    path: "{{ (nvim_which.stdout | dirname | dirname) }}/share/nvim/runtime/syntax/syntax.vim"
+    path: "{{ (tool_paths.nvim | dirname | dirname) }}/share/nvim/runtime/syntax/syntax.vim"
   register: nvim_runtime_stat
-  when: nvim_which.rc == 0
+  when: "'nvim' in tool_paths"
 
 - name: Install a complete nvim (fixes missing or broken installs)
-  when: nvim_which.rc != 0 or not nvim_runtime_stat.stat.exists
+  when: "'nvim' not in tool_paths or not nvim_runtime_stat.stat.exists"
   block:
     - name: Download nvim release tarball
       ansible.builtin.get_url:
@@ -299,16 +218,3 @@
         remote_src: true
         extra_opts:
           - --strip-components=1
-
-# nvim requirements
-- name: Install ripgrep
-  become: true
-  ansible.builtin.package:
-    name:
-      - ripgrep
-    state: present
-  when: ansible_facts.pkg_mgr in ['apt', 'pacman']
-
-
-
-

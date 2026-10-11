@@ -10,6 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODE="symlink"
 SKIP_PACKAGES=false
 GUI=false
+RUST=false
 TARGET_HOST=""
 SSH_PORT=""
 SSH_USER=""
@@ -19,7 +20,7 @@ PNPM_VERSION=""
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [--symlink|--copy] [--gui] [--skip-packages] [-i HOST] [-p PORT] [-u USER] [--local-file=PATH]
+Usage: $(basename "$0") [--symlink|--copy] [--gui] [--rust] [--skip-packages] [-i HOST] [-p PORT] [-u USER] [--local-file=PATH]
                         [--pnpm-version VERSION]
        $(basename "$0") --wsl=WIN_USER
 
@@ -27,6 +28,7 @@ Usage: $(basename "$0") [--symlink|--copy] [--gui] [--skip-packages] [-i HOST] [
   --copy           Copy dotfiles into \$HOME instead of symlinking
   --gui            Also set up GUI stuff: tasks tagged 'gui' (Hyprland, Waybar,
                     GTK, ...). Without it only CLI-relevant stuff is set up
+  --rust           Also download the stable rust toolchain via rustup
   --skip-packages  Don't install missing CLI tool dependencies (eza, bat, fd, ...)
   -i HOST          Target host to install on over SSH (default: localhost, no SSH)
   -p PORT          SSH port to use with -i (default: 22)
@@ -34,8 +36,8 @@ Usage: $(basename "$0") [--symlink|--copy] [--gui] [--skip-packages] [-i HOST] [
   --local-file=PATH  YAML file of vars to write into /etc/environment
                     (default: environment.yml at the repo root)
   --pnpm-version VERSION
-                    Pin the pnpm version corepack activates, e.g. 12.4.0
-                    (default: whatever corepack resolves on its own)
+                    Pin the pnpm version npm installs, e.g. 12.4.0
+                    (default: whatever npm resolves on its own)
   --wsl=WIN_USER   Also configure the Windows Terminal font for WSL, as
                     Windows user WIN_USER, after the regular dotfiles install
   -h, --help       Show this help
@@ -47,6 +49,7 @@ while [[ $# -gt 0 ]]; do
     --symlink) MODE="symlink" ;;
     --copy) MODE="copy" ;;
     --gui) GUI=true ;;
+    --rust) RUST=true ;;
     --skip-packages) SKIP_PACKAGES=true ;;
     --wsl=*)
       WSL_USER="${1#--wsl=}"
@@ -88,7 +91,7 @@ done
 # so point at it explicitly.
 export ANSIBLE_CONFIG="$SCRIPT_DIR/install/ansible.cfg"
 
-EXTRA_VARS="{\"dotfiles_mode\": \"$MODE\", \"skip_packages\": $SKIP_PACKAGES"
+EXTRA_VARS="{\"dotfiles_mode\": \"$MODE\", \"skip_packages\": $SKIP_PACKAGES, \"install_rust_toolchain\": $RUST"
 if [[ -z "$TARGET_HOST" ]]; then
   # No explicit remote host: install directly here, never over SSH (avoids
   # surprises from an ssh_config alias redefining what "localhost" means).

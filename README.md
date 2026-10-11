@@ -39,12 +39,13 @@ GUI-only work is flagged with the Ansible tag `gui`; without `--gui`, `install.s
 ### Options
 
 ```
-./install.sh [--symlink|--copy] [--gui] [--skip-packages] [-i HOST] [-p PORT] [-u USER] [--local-file=PATH]
+./install.sh [--symlink|--copy] [--gui] [--rust] [--skip-packages] [-i HOST] [-p PORT] [-u USER] [--local-file=PATH]
              [--pnpm-version VERSION]
 
   --symlink        Symlink dotfiles into $HOME (default)
   --copy           Copy dotfiles into $HOME instead of symlinking
   --gui            Also set up GUI stuff (tasks tagged 'gui'); default is CLI-only
+  --rust           Also download the stable rust toolchain via rustup
   --skip-packages  Don't install missing CLI tool dependencies
   -i HOST          Target host to install on over SSH (default: localhost)
   -p PORT          SSH port to use with -i (default: 22)
@@ -52,15 +53,15 @@ GUI-only work is flagged with the Ansible tag `gui`; without `--gui`, `install.s
   --local-file=PATH  YAML file of vars to write into /etc/environment
                     (default: environment.yml at the repo root)
   --pnpm-version VERSION
-                    Pin the pnpm version corepack activates, e.g. 12.4.0
-                    (default: whatever corepack resolves on its own)
+                    Pin the pnpm version npm installs, e.g. 12.4.0
+                    (default: whatever npm resolves on its own)
 ```
 
 Running against a remote host (`-i HOST`) stages this repo on that host over SSH and installs there — no shared filesystem needed.
 
 ### Pinning pnpm
 
-By default the playbook lets corepack pick the pnpm version (`corepack use pnpm`).
+By default the playbook lets npm pick the pnpm version (`npm install -g pnpm`).
 A host behind a custom npm registry that doesn't carry that version needs a
 specific one instead, which is per-host and so never committed here:
 
@@ -68,7 +69,7 @@ specific one instead, which is per-host and so never committed here:
 ./install.sh -i myhost --pnpm-version 12.4.0
 ```
 
-That runs `corepack prepare pnpm@12.4.0 --activate` on the target. Per-machine
+That runs `npm install -g pnpm@12.4.0` on the target (only when that version isn't already installed). Per-machine
 `environment.yml` files can also set `pnpm_version: "12.4.0"` at the top level
 to get the same effect without passing the flag every time; the flag wins over
 the file.
