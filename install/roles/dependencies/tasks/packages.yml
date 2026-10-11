@@ -54,26 +54,36 @@
   ansible.builtin.shell: >
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.6/install.sh | bash
   args:
-    creates: "{{ ansible_facts.env.HOME }}/.nvm/nvm.sh"
+    creates: "{{ nvm_dir }}/nvm.sh"
+  environment:
+    NVM_DIR: "{{ nvm_dir }}"
 
-# nvm writes alias/default on its first install, so this only runs (and only
-# hits the network) when no node is installed yet.
+# Only hits the network when no node is available yet (neither on PATH nor
+# via nvm's default alias, which sourcing nvm.sh activates).
 - name: Install Node
-  ansible.builtin.shell: >
-    source "{{ ansible_facts.env.HOME }}/.nvm/nvm.sh" && nvm install "{{ node_version }}"
+  ansible.builtin.shell: |
+    source "{{ nvm_dir }}/nvm.sh"
+    command -v node >/dev/null && exit 0
+    nvm install "{{ node_version }}"
+    echo NODE_INSTALLED
   args:
     executable: /bin/bash
-    creates: "{{ ansible_facts.env.HOME }}/.nvm/alias/default"
+  environment:
+    NVM_DIR: "{{ nvm_dir }}"
+  register: node_install
+  changed_when: "'NODE_INSTALLED' in node_install.stdout"
 
 - name: Set npm registry if env var is set
   ansible.builtin.shell: |
     set -a; . /etc/environment; set +a
-    source "{{ ansible_facts.env.HOME }}/.nvm/nvm.sh"
+    source "{{ nvm_dir }}/nvm.sh"
     if [ -n "${NPM_CONFIG_REGISTRY:-}" ]; then
       npm config set registry "$NPM_CONFIG_REGISTRY"
     fi
   args:
     executable: /bin/bash
+  environment:
+    NVM_DIR: "{{ nvm_dir }}"
   changed_when: false
 
 # Without pnpm_version npm resolves the version itself, which fails on a
@@ -81,7 +91,7 @@
 # install.sh to install a version that registry does have instead.
 - name: Install pnpm
   ansible.builtin.shell: |
-    source "{{ ansible_facts.env.HOME }}/.nvm/nvm.sh"
+    source "{{ nvm_dir }}/nvm.sh"
     want="{{ pnpm_version }}"
     if command -v pnpm >/dev/null && { [ -z "$want" ] || [ "$(pnpm --version)" = "$want" ]; }; then
       exit 0
@@ -90,6 +100,8 @@
     echo PNPM_INSTALLED
   args:
     executable: /bin/bash
+  environment:
+    NVM_DIR: "{{ nvm_dir }}"
   register: pnpm_install
   changed_when: "'PNPM_INSTALLED' in pnpm_install.stdout"
 

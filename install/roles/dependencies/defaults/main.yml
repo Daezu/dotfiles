@@ -7,6 +7,10 @@ local_bin: "{{ ansible_facts.env.HOME }}/.local/bin"
 # version that works depends on the npm registry the host talks to).
 pnpm_version: ""
 
+# Respect an existing nvm (e.g. the devcontainer node feature sets
+# NVM_DIR=/usr/local/share/nvm); the nvm installer itself honours it too.
+nvm_dir: "{{ ansible_facts.env.NVM_DIR | default(ansible_facts.env.HOME ~ '/.nvm', true) }}"
+
 # Passed to `nvm install`; only used when no node is installed yet.
 node_version: node
 
