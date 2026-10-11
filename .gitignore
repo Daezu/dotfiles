@@ -5,6 +5,10 @@
 # per-machine environment variables (see environment.yml.example)
 /environment.yml
 
+# secrets
+.secret
+.secrets
+.env
 
 # matugen/style/color files
 .config/gtk-3.0/colors.css
