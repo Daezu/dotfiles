@@ -50,6 +50,13 @@
       fi
 
 # --- nodejs: install nodejs & pnpm ---
+- name: Ensure NVM directory exists
+  ansible.builtin.file:
+    path: "{{ nvm_dir }}"
+    state: directory
+    owner: vscode
+    group: vscode
+    mode: "0755"
 - name: Install nvm
   ansible.builtin.shell: >
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
