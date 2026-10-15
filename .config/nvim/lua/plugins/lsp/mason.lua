@@ -2,7 +2,8 @@ return {
     "mason-org/mason-lspconfig.nvim",
     opts = {
 	ensure_installed = {
-	    "pyright",
+	    "basedpyright",
+	    "ruff",
 	    "ts_ls",
 	    "html",
 	    "cssls",

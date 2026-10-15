@@ -25,6 +25,9 @@ vim.api.nvim_create_autocmd("LspAttach", {
     opts.desc = "See available code actions"
     keymap.set({ "n", "v" }, "<leader>ca", vim.lsp.buf.code_action, opts) -- see available code actions, in visual mode will apply to selection
 
+    opts.desc = "Format buffer"
+    keymap.set({ "n", "v" }, "<leader>cf", function() vim.lsp.buf.format({ async = true }) end, opts) -- format with attached LSP
+
     opts.desc = "Smart rename"
     keymap.set("n", "<leader>rn", vim.lsp.buf.rename, opts) -- smart rename
 
@@ -64,6 +67,24 @@ vim.api.nvim_create_autocmd("LspAttach", {
   end,
 })
 
+
+
+
+-- Python: basedpyright for types/completion/hover, ruff for formatting/linting/imports
+vim.lsp.config("ruff", {
+  on_attach = function(client)
+    client.server_capabilities.hoverProvider = false
+  end,
+})
+
+vim.lsp.config("basedpyright", {
+  settings = {
+    basedpyright = {
+      disableOrganizeImports = true,
+      analysis = { typeCheckingMode = "standard" }, -- pyright's default; basedpyright defaults to the much noisier "recommended"
+    },
+  },
+})
 
 
 
