@@ -47,8 +47,8 @@ export PATH="$HOME/.cargo/bin:$PATH"
 
 
 # ---------- SECRETS ----------
-if [ -f ~/.secrets ]; then
+if [ -f $HOME/.secrets ]; then
   set -a
-  source ~/.secrets
+  source $HOME/.secrets
   set +a
 fi
