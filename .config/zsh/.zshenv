@@ -30,9 +30,11 @@ export PNPM_HOME="$HOME/.local/share/pnpm"
 
 # ---------- DEVSY ----------
 export DEVSY_IDE="none"
+devsy ide use $DEVSY_IDE
 export DEVSY_PROVIDER="podman"
 export DEVSY_SSH_CONFIG_INCLUDE_PATH="$HOME/.ssh/config.d/devsy"
 devsy context set -o SSH_CONFIG_INCLUDE_PATH=$DEVSY_SSH_CONFIG_INCLUDE_PATH
+devsy context set -o TELEMETRY=false
 #export DEVSY_DEBUG=true
 # Podman compose
 export DOCKER_HOST="unix://$XDG_RUNTIME_DIR/podman/podman.sock"
@@ -42,3 +44,11 @@ export DOCKER_HOST="unix://$XDG_RUNTIME_DIR/podman/podman.sock"
 export PATH="$HOME/.local/bin:$PATH"
 export PATH="$PNPM_HOME/bin:$PATH"
 export PATH="$HOME/.cargo/bin:$PATH"
+
+
+# ---------- SECRETS ----------
+if [ -f ~/.secrets ]; then
+  set -a
+  source ~/.secrets
+  set +a
+fi
