@@ -123,8 +123,12 @@ function y() {
 # =========================================================
 # NVM
 # =========================================================
-source /usr/share/nvm/init-nvm.sh
-
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+if [[ -s "$NVM_DIR/nvm.sh" ]]; then
+  source "$NVM_DIR/nvm.sh"
+elif [[ -r /usr/share/nvm/init-nvm.sh ]]; then
+  source /usr/share/nvm/init-nvm.sh
+fi
 
 
 

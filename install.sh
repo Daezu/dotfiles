@@ -30,7 +30,7 @@ Usage: $(basename "$0") [--symlink|--copy] [--gui] [--rust] [--skip-packages] [-
   --gui            Also set up GUI stuff: tasks tagged 'gui' (Hyprland, Waybar,
                     GTK, ...). Without it only CLI-relevant stuff is set up
   --rust           Also download the stable rust toolchain via rustup
-  --skip-packages  Don't install missing CLI tool dependencies (eza, bat, fd, ...)
+  --skip-packages  Skip system tools; still set up per-user Node, pnpm and plugins
   --skip-env       Skip loading and applying system environment variables
   -i HOST          Target host to install on over SSH (default: localhost, no SSH)
   -p PORT          SSH port to use with -i (default: 22)
@@ -129,7 +129,10 @@ read -p "Run installation on $PROMPT_TARGET? (y/n)" -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
-    ansible-playbook -i "$TARGET_HOST," "$SCRIPT_DIR/install/playbook.yml" -e "$EXTRA_VARS" "${ANSIBLE_ARGS[@]}" --ask-become-pass
+    if [[ "$SKIP_PACKAGES" != true || "$SKIP_ENV" != true ]]; then
+        ANSIBLE_ARGS+=(--ask-become-pass)
+    fi
+    ansible-playbook -i "$TARGET_HOST," "$SCRIPT_DIR/install/playbook.yml" -e "$EXTRA_VARS" "${ANSIBLE_ARGS[@]}"
     if [[ -n "$WSL_USER" ]]; then
         ansible-playbook "$SCRIPT_DIR/install/roles/wsl/tasks/main.yml" -e "windows_user=$WSL_USER" --ask-become-pass
     fi

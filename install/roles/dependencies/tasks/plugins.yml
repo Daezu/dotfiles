@@ -12,7 +12,7 @@
 
 - name: Prefetch zsh plugins (reuses plugins.zsh's own _zplugin_load git-clone logic)
   ansible.builtin.shell: >
-    env -u ZDOTDIR -u XDG_CONFIG_HOME ZDOTDIR="{{ ansible_facts.env.HOME }}/.config/zsh"
+    env -u ZDOTDIR -u XDG_CONFIG_HOME -u XDG_DATA_HOME ZDOTDIR="{{ ansible_facts.env.HOME }}/.config/zsh"
     zsh -c 'source "$ZDOTDIR/plugins.zsh"'
   args:
     executable: /bin/bash

@@ -1,0 +1,84 @@
+---
+# Language environments are installed as the target user, without become.
+# --- nodejs: install nodejs & pnpm ---
+- name: Ensure NVM directory exists
+  ansible.builtin.file:
+    path: "{{ nvm_dir }}"
+    state: directory
+    mode: "0755"
+- name: Install nvm
+  ansible.builtin.shell: |
+    set -o pipefail
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
+  args:
+    executable: /bin/bash
+    creates: "{{ nvm_dir }}/nvm.sh"
+  environment:
+    NVM_DIR: "{{ nvm_dir }}"
+
+# Only hits the network when no node is available yet (neither on PATH nor
+# via nvm's default alias, which sourcing nvm.sh activates).
+- name: Install Node
+  ansible.builtin.shell: |
+    set -e
+    source "{{ nvm_dir }}/nvm.sh"
+    command -v node >/dev/null && exit 0
+    nvm install "{{ node_version }}"
+    echo NODE_INSTALLED
+  args:
+    executable: /bin/bash
+  environment:
+    NVM_DIR: "{{ nvm_dir }}"
+  register: node_install
+  changed_when: "'NODE_INSTALLED' in node_install.stdout"
+
+- name: Set npm registry if env var is set
+  ansible.builtin.shell: |
+    set -e
+    set -a; . /etc/environment; set +a
+    source "{{ nvm_dir }}/nvm.sh"
+    if [ -n "${NPM_CONFIG_REGISTRY:-}" ]; then
+      npm config set registry "$NPM_CONFIG_REGISTRY"
+    fi
+  args:
+    executable: /bin/bash
+  environment:
+    NVM_DIR: "{{ nvm_dir }}"
+  changed_when: false
+
+# Without pnpm_version npm resolves the version itself, which fails on a
+# host whose npm registry doesn't carry it; pass --pnpm-version X.Y.Z to
+# install.sh to install a version that registry does have instead.
+- name: Install pnpm
+  ansible.builtin.shell: |
+    set -e
+    source "{{ nvm_dir }}/nvm.sh"
+    want="{{ pnpm_version }}"
+    if command -v pnpm >/dev/null && { [ -z "$want" ] || [ "$(pnpm --version)" = "$want" ]; }; then
+      exit 0
+    fi
+    npm install -g "pnpm${want:+@$want}"
+    echo PNPM_INSTALLED
+  args:
+    executable: /bin/bash
+  environment:
+    NVM_DIR: "{{ nvm_dir }}"
+  register: pnpm_install
+  changed_when: "'PNPM_INSTALLED' in pnpm_install.stdout"
+
+# --- rust: the rustup package is installed above; the toolchain itself is a
+# several-hundred-MB download, so only fetch it when asked (install.sh --rust) ---
+
+- name: Set up the stable rust toolchain
+  when: install_rust_toolchain | bool
+  block:
+    - name: Check current rustup default toolchain
+      ansible.builtin.command: rustup show active-toolchain
+      register: rustup_active
+      changed_when: false
+      failed_when: false
+    - name: Set rustup default
+      ansible.builtin.command: rustup default stable
+      when: >
+        rustup_active.rc != 0 or
+        rustup_active.stdout | trim == ''

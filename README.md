@@ -28,6 +28,19 @@ Everything is driven by a small Ansible playbook under `install/`; `install.sh` 
 
 This symlinks every top-level entry in this repo (and every CLI app folder under `.config/`) into the right place under `$HOME`, installing any missing CLI dependencies (`eza`, `bat`, `fd`, `starship`, `yazi`, `nvim`, `rustup`, `nvm`/Node, …) along the way. Anything already present at a destination gets backed up first, under `~/.dotfiles_backup/<timestamp>/`.
 
+Shared tools are installed with sudo through apt/pacman. Missing Yazi, Tree-sitter, uv, and Devsy executables use upstream releases installed as root under `/usr/local/bin`. Downloads are staged in a private temporary directory and removed afterward. Existing installations under `~/.local/bin` are preserved and can still take precedence in your PATH.
+
+NVM, Node, pnpm, Zsh plugins, and optional Rust toolchains are set up separately for the target user. Editor plugins, caches, credentials, Podman storage, and Devsy configuration remain in that user's home. An existing `NVM_DIR` is respected, including in devcontainers.
+
+After installing the system tools from your main account, install the configuration and user tools for `dev` without sudo:
+
+```sh
+sudo -iu dev
+/srv/dotfiles/install.sh --skip-packages --skip-env
+```
+
+This still installs the per-user tools and can download Node and plugins. With both skip flags, the installer does not ask for a sudo password.
+
 By default only CLI-relevant stuff is set up, so the same command works on servers and devcontainers. On a desktop, add `--gui` to also set up the graphical side (Hyprland, Waybar, Kitty, GTK, ...):
 
 ```sh
@@ -46,7 +59,7 @@ GUI-only work is flagged with the Ansible tag `gui`; without `--gui`, `install.s
   --copy           Copy dotfiles into $HOME instead of symlinking
   --gui            Also set up GUI stuff (tasks tagged 'gui'); default is CLI-only
   --rust           Also download the stable rust toolchain via rustup
-  --skip-packages  Don't install missing CLI tool dependencies
+  --skip-packages  Skip system tools; still set up per-user Node, pnpm and plugins
   --skip-env       Skip loading and applying system environment variables
   -i HOST          Target host to install on over SSH (default: localhost)
   -p PORT          SSH port to use with -i (default: 22)
@@ -92,7 +105,7 @@ To keep the values somewhere else entirely, point at any file with
 
 ### Requirements
 
-- `ansible-playbook` on the machine you run `install.sh` from
+- `ansible-playbook` on the machine you run `install.sh` from (bootstrap with `sudo apt install ansible-core` or `sudo pacman -S ansible-core`)
 - `sudo` access on the target for package installation (skip with `--skip-packages`)
 - Supported package managers: `apt`, `pacman`
 

@@ -2,14 +2,15 @@
 # aliases.zsh/prompt.zsh assume these are installed (e.g. `alias ls='eza --icons'`,
 # `alias cat='bat'`, `eval "$(starship init zsh)"`); a bare devcontainer image
 # has none of them. Installed via the system package manager where possible;
-# tools not packaged for apt fall back to their official installer or a
-# prebuilt release binary, placed in {{ local_bin }} (already first on $PATH,
-# see .zshenv).
+# tools not packaged for apt use release binaries in /usr/local/bin.
+# All tasks here run with become, so shared executables remain root-owned.
 
-- name: Ensure {{ local_bin }} exists
+- name: Ensure shared binary directory exists
   ansible.builtin.file:
-    path: "{{ local_bin }}"
+    path: "{{ system_bin }}"
     state: directory
+    owner: root
+    group: root
     mode: "0755"
 
 # One package-manager transaction for everything (package lists live in
@@ -49,97 +50,17 @@
         export ZDOTDIR="$XDG_CONFIG_HOME/zsh"
       fi
 
-# --- nodejs: install nodejs & pnpm ---
-- name: Ensure NVM directory exists
-  ansible.builtin.file:
-    path: "{{ nvm_dir }}"
-    state: directory
-    owner: vscode
-    group: vscode
-    mode: "0755"
-- name: Install nvm
-  ansible.builtin.shell: >
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
-  args:
-    creates: "{{ nvm_dir }}/nvm.sh"
-  environment:
-    NVM_DIR: "{{ nvm_dir }}"
-
-# Only hits the network when no node is available yet (neither on PATH nor
-# via nvm's default alias, which sourcing nvm.sh activates).
-- name: Install Node
-  ansible.builtin.shell: |
-    source "{{ nvm_dir }}/nvm.sh"
-    command -v node >/dev/null && exit 0
-    nvm install "{{ node_version }}"
-    echo NODE_INSTALLED
-  args:
-    executable: /bin/bash
-  environment:
-    NVM_DIR: "{{ nvm_dir }}"
-  register: node_install
-  changed_when: "'NODE_INSTALLED' in node_install.stdout"
-
-- name: Set npm registry if env var is set
-  ansible.builtin.shell: |
-    set -a; . /etc/environment; set +a
-    source "{{ nvm_dir }}/nvm.sh"
-    if [ -n "${NPM_CONFIG_REGISTRY:-}" ]; then
-      npm config set registry "$NPM_CONFIG_REGISTRY"
-    fi
-  args:
-    executable: /bin/bash
-  environment:
-    NVM_DIR: "{{ nvm_dir }}"
-  changed_when: false
-
-# Without pnpm_version npm resolves the version itself, which fails on a
-# host whose npm registry doesn't carry it; pass --pnpm-version X.Y.Z to
-# install.sh to install a version that registry does have instead.
-- name: Install pnpm
-  ansible.builtin.shell: |
-    source "{{ nvm_dir }}/nvm.sh"
-    want="{{ pnpm_version }}"
-    if command -v pnpm >/dev/null && { [ -z "$want" ] || [ "$(pnpm --version)" = "$want" ]; }; then
-      exit 0
-    fi
-    npm install -g "pnpm${want:+@$want}"
-    echo PNPM_INSTALLED
-  args:
-    executable: /bin/bash
-  environment:
-    NVM_DIR: "{{ nvm_dir }}"
-  register: pnpm_install
-  changed_when: "'PNPM_INSTALLED' in pnpm_install.stdout"
-
-# --- rust: the rustup package is installed above; the toolchain itself is a
-# several-hundred-MB download, so only fetch it when asked (install.sh --rust) ---
-
-- name: Set up the stable rust toolchain
-  when: install_rust_toolchain | bool
-  block:
-    - name: Check current rustup default toolchain
-      ansible.builtin.command: rustup show active-toolchain
-      register: rustup_active
-      changed_when: false
-      failed_when: false
-    - name: Set rustup default
-      ansible.builtin.command: rustup default stable
-      when: >
-        rustup_active.rc != 0 or
-        rustup_active.stdout | trim == ''
-
 # One probe for every tool whose presence decides a fallback install below.
 - name: Look up tools on PATH
   ansible.builtin.shell: |
-    for t in bat batcat fd fdfind yazi nvim tree-sitter; do
+    for t in bat batcat fd fdfind yazi tree-sitter uv devsy; do
       p=$(command -v "$t") && echo "$t=$p"
     done
     true
   args:
     executable: /bin/bash
   environment:
-    PATH: "{{ local_bin }}:{{ ansible_facts.env.PATH }}"
+    PATH: "{{ system_bin }}:/usr/bin:/bin"
   register: tool_probe
   changed_when: false
 
@@ -153,87 +74,106 @@
 - name: Symlink batcat -> bat if needed
   ansible.builtin.file:
     src: "{{ tool_paths.batcat }}"
-    dest: "{{ local_bin }}/bat"
+    dest: "{{ system_bin }}/bat"
     state: link
   when: "'bat' not in tool_paths and 'batcat' in tool_paths"
 
 - name: Symlink fdfind -> fd if needed
   ansible.builtin.file:
     src: "{{ tool_paths.fdfind }}"
-    dest: "{{ local_bin }}/fd"
+    dest: "{{ system_bin }}/fd"
     state: link
   when: "'fd' not in tool_paths and 'fdfind' in tool_paths"
 
-# --- tree-sitter / yazi: packaged on pacman; GitHub release binary elsewhere ---
-
-- name: Download+install tree-sitter CLI from GitHub release (no apt package)
-  ansible.builtin.get_url:
-    url: "https://github.com/tree-sitter/tree-sitter/releases/latest/download/tree-sitter-linux-{{ tree_sitter_arch_map[ansible_facts.architecture] }}.gz"
-    dest: /tmp/tree-sitter.gz
-    mode: "0644"
-  when: "'tree-sitter' not in tool_paths"
-
-- name: Unpack tree-sitter CLI into {{ local_bin }}
-  ansible.builtin.shell: >
-    gunzip -c /tmp/tree-sitter.gz > "{{ local_bin }}/tree-sitter" &&
-    chmod 0755 "{{ local_bin }}/tree-sitter"
-  when: "'tree-sitter' not in tool_paths"
-
-- name: Download+install yazi from GitHub release (no apt package)
-  when: "'yazi' not in tool_paths"
+# Probe only the shared PATH: a user's private binary must not skip system setup.
+- name: Install missing shared release binaries
+  when: >-
+    'tree-sitter' not in tool_paths or 'yazi' not in tool_paths or
+    'uv' not in tool_paths or 'devsy' not in tool_paths
   block:
-    - name: Download yazi release archive
+    - name: Create a private release staging directory
+      ansible.builtin.tempfile:
+        state: directory
+        prefix: dotfiles-tools-
+      register: release_stage
+
+    - name: Install Tree-sitter CLI
+      when: "'tree-sitter' not in tool_paths"
+      block:
+        - name: Download Tree-sitter CLI
+          ansible.builtin.get_url:
+            url: "https://github.com/tree-sitter/tree-sitter/releases/latest/download/tree-sitter-linux-{{ tree_sitter_arch_map[ansible_facts.architecture] }}.gz"
+            dest: "{{ release_stage.path }}/tree-sitter.gz"
+            mode: "0644"
+        - name: Unpack Tree-sitter CLI
+          ansible.builtin.shell: >-
+            gunzip -c "{{ release_stage.path }}/tree-sitter.gz" > "{{ release_stage.path }}/tree-sitter"
+        - name: Install shared Tree-sitter CLI
+          ansible.builtin.copy:
+            src: "{{ release_stage.path }}/tree-sitter"
+            dest: "{{ system_bin }}/tree-sitter"
+            remote_src: true
+            owner: root
+            group: root
+            mode: "0755"
+
+    - name: Install Yazi
+      when: "'yazi' not in tool_paths"
+      block:
+        - name: Download Yazi archive
+          ansible.builtin.get_url:
+            url: "https://github.com/sxyazi/yazi/releases/latest/download/yazi-{{ yazi_arch_map[ansible_facts.architecture] }}-unknown-linux-gnu.zip"
+            dest: "{{ release_stage.path }}/yazi.zip"
+            mode: "0644"
+        - name: Extract Yazi archive
+          ansible.builtin.unarchive:
+            src: "{{ release_stage.path }}/yazi.zip"
+            dest: "{{ release_stage.path }}"
+            remote_src: true
+        - name: Install shared Yazi binaries
+          ansible.builtin.copy:
+            src: "{{ release_stage.path }}/yazi-{{ yazi_arch_map[ansible_facts.architecture] }}-unknown-linux-gnu/{{ item }}"
+            dest: "{{ system_bin }}/{{ item }}"
+            remote_src: true
+            owner: root
+            group: root
+            mode: "0755"
+          loop: [yazi, ya]
+
+    - name: Install uv
+      when: "'uv' not in tool_paths"
+      block:
+        - name: Download uv archive
+          ansible.builtin.get_url:
+            url: "https://github.com/astral-sh/uv/releases/latest/download/uv-{{ uv_arch_map[ansible_facts.architecture] }}-unknown-linux-gnu.tar.gz"
+            dest: "{{ release_stage.path }}/uv.tar.gz"
+            mode: "0644"
+        - name: Extract uv archive
+          ansible.builtin.unarchive:
+            src: "{{ release_stage.path }}/uv.tar.gz"
+            dest: "{{ release_stage.path }}"
+            remote_src: true
+        - name: Install shared uv binaries
+          ansible.builtin.copy:
+            src: "{{ release_stage.path }}/uv-{{ uv_arch_map[ansible_facts.architecture] }}-unknown-linux-gnu/{{ item }}"
+            dest: "{{ system_bin }}/{{ item }}"
+            remote_src: true
+            owner: root
+            group: root
+            mode: "0755"
+          loop: [uv, uvx]
+
+    - name: Install shared Devsy binary
       ansible.builtin.get_url:
-        url: "https://github.com/sxyazi/yazi/releases/latest/download/yazi-{{ yazi_arch_map[ansible_facts.architecture] }}-unknown-linux-gnu.zip"
-        dest: /tmp/yazi.zip
-        mode: "0644"
-    - name: Extract yazi to a temp dir
-      ansible.builtin.unarchive:
-        src: /tmp/yazi.zip
-        dest: /tmp
-        remote_src: true
-    - name: Find extracted yazi/ya binaries
-      ansible.builtin.find:
-        paths: /tmp
-        patterns: ["yazi", "ya"]
-        recurse: true
-        file_type: file
-      register: yazi_binaries
-    - name: Install yazi/ya binaries into {{ local_bin }}
-      ansible.builtin.copy:
-        src: "{{ item.path }}"
-        dest: "{{ local_bin }}/{{ item.path | basename }}"
-        remote_src: true
+        url: "https://github.com/devsy-org/devsy/releases/latest/download/devsy-linux-{{ devsy_arch_map[ansible_facts.architecture] }}"
+        dest: "{{ system_bin }}/devsy"
+        owner: root
+        group: root
         mode: "0755"
-      loop: "{{ yazi_binaries.files }}"
-      loop_control:
-        label: "{{ item.path | basename }}"
-
-# --- nvim: fix the common "binary present, runtime missing" broken install ---
-# Some environments provision nvim via a broken third-party installer that
-# extracts only bin/nvim from the official tarball and discards
-# share/nvim/runtime (breaks require('vim.uri'), :syntax, etc. at startup).
-# Detect that specific state, not just whether the binary exists.
-
-- name: Check nvim's runtime marker (only meaningful if nvim exists)
-  ansible.builtin.stat:
-    path: "{{ (tool_paths.nvim | dirname | dirname) }}/share/nvim/runtime/syntax/syntax.vim"
-  register: nvim_runtime_stat
-  when: "'nvim' in tool_paths"
-
-- name: Install a complete nvim (fixes missing or broken installs)
-  when: "'nvim' not in tool_paths or not nvim_runtime_stat.stat.exists"
-  block:
-    - name: Download nvim release tarball
-      ansible.builtin.get_url:
-        url: "https://github.com/neovim/neovim/releases/latest/download/nvim-linux-{{ nvim_arch_map[ansible_facts.architecture] }}.tar.gz"
-        dest: /tmp/nvim.tar.gz
-        timeout: 120
-        mode: "0644"
-    - name: Extract nvim into {{ ansible_facts.env.HOME }}/.local (merging bin/ and share/)
-      ansible.builtin.unarchive:
-        src: /tmp/nvim.tar.gz
-        dest: "{{ ansible_facts.env.HOME }}/.local"
-        remote_src: true
-        extra_opts:
-          - --strip-components=1
+      when: "'devsy' not in tool_paths"
+  always:
+    - name: Remove release staging directory
+      ansible.builtin.file:
+        path: "{{ release_stage.path }}"
+        state: absent
+      when: release_stage.path is defined

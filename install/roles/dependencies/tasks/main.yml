@@ -1,7 +1,13 @@
 ---
-- name: Prefetch zsh plugins
-  ansible.builtin.import_tasks: plugins.yml
-
-- name: Install missing CLI tool dependencies
+- name: Install shared system tools
   ansible.builtin.import_tasks: packages.yml
   when: not skip_packages
+  become: true
+
+- name: Set up per-user language environments
+  ansible.builtin.import_tasks: user.yml
+  become: false
+
+- name: Prefetch per-user zsh plugins
+  ansible.builtin.import_tasks: plugins.yml
+  become: false
