@@ -20,7 +20,7 @@ vimcmd_symbol  = "[❮](#f9e2af)"
 style_user = "color8 bold"
 style_root = "error bold"
 format = "[](fg:color4)[$user](fg:$style bg:color4)[](fg:color4)"
-show_always = false
+show_always = true
 
 [os]
 disabled = false

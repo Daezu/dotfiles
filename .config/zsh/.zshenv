@@ -1,5 +1,7 @@
 # ~/.config/zsh/.zshenv
 
+skip_global_compinit=1
+
 # ---------- XDG base directories ----------
 # Centralizes config/cache/data locations
 export XDG_CONFIG_HOME="$HOME/.config"
