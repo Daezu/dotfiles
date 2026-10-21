@@ -39,7 +39,7 @@ GUI-only work is flagged with the Ansible tag `gui`; without `--gui`, `install.s
 ### Options
 
 ```
-./install.sh [--symlink|--copy] [--gui] [--rust] [--skip-packages] [-i HOST] [-p PORT] [-u USER] [--local-file=PATH]
+./install.sh [--symlink|--copy] [--gui] [--rust] [--skip-packages] [--skip-env] [-i HOST] [-p PORT] [-u USER] [--local-file=PATH]
              [--pnpm-version VERSION]
 
   --symlink        Symlink dotfiles into $HOME (default)
@@ -47,6 +47,7 @@ GUI-only work is flagged with the Ansible tag `gui`; without `--gui`, `install.s
   --gui            Also set up GUI stuff (tasks tagged 'gui'); default is CLI-only
   --rust           Also download the stable rust toolchain via rustup
   --skip-packages  Don't install missing CLI tool dependencies
+  --skip-env       Skip loading and applying system environment variables
   -i HOST          Target host to install on over SSH (default: localhost)
   -p PORT          SSH port to use with -i (default: 22)
   -u USER          SSH user to use with -i

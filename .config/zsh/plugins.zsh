@@ -2,7 +2,8 @@
 # Plugins
 # =========================================================
 
-ZPLUGINDIR="${ZDOTDIR:-$HOME/.config/zsh}/plugins"
+#ZPLUGINDIR="${ZDOTDIR:-$HOME/.config/zsh}/plugins"
+ZPLUGINDIR="${XDG_DATA_HOME:-$HOME/.local/share}/zsh/plugins"
 
 _zplugin_load() {
   local plugin_path="${ZPLUGINDIR}/${2}"

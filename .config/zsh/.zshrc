@@ -38,6 +38,8 @@ setopt NUMERIC_GLOB_SORT  # sort file10 after file9, not after file1
 # Completion
 # =========================================================
 
+mkdir -p "$XDG_CACHE_HOME/zsh"
+
 # Load completion system
 autoload -Uz compinit
 

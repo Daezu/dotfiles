@@ -8,6 +8,6 @@
     # Always first: writes /etc/environment and reconnects so the vars are
     # loaded for every role after it.
     - role: environment
-      tags: [always]
+      tags: [always, environment]
     - dotfiles
     - dependencies

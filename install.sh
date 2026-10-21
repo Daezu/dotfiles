@@ -9,6 +9,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODE="symlink"
 SKIP_PACKAGES=false
+SKIP_ENV=false
 GUI=false
 RUST=false
 TARGET_HOST=""
@@ -20,7 +21,7 @@ PNPM_VERSION=""
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [--symlink|--copy] [--gui] [--rust] [--skip-packages] [-i HOST] [-p PORT] [-u USER] [--local-file=PATH]
+Usage: $(basename "$0") [--symlink|--copy] [--gui] [--rust] [--skip-packages] [--skip-env] [-i HOST] [-p PORT] [-u USER] [--local-file=PATH]
                         [--pnpm-version VERSION]
        $(basename "$0") --wsl=WIN_USER
 
@@ -30,6 +31,7 @@ Usage: $(basename "$0") [--symlink|--copy] [--gui] [--rust] [--skip-packages] [-
                     GTK, ...). Without it only CLI-relevant stuff is set up
   --rust           Also download the stable rust toolchain via rustup
   --skip-packages  Don't install missing CLI tool dependencies (eza, bat, fd, ...)
+  --skip-env       Skip loading and applying system environment variables
   -i HOST          Target host to install on over SSH (default: localhost, no SSH)
   -p PORT          SSH port to use with -i (default: 22)
   -u USER          SSH user to use with -i (default: your ssh client's own default)
@@ -51,6 +53,7 @@ while [[ $# -gt 0 ]]; do
     --gui) GUI=true ;;
     --rust) RUST=true ;;
     --skip-packages) SKIP_PACKAGES=true ;;
+    --skip-env) SKIP_ENV=true ;;
     --wsl=*)
       WSL_USER="${1#--wsl=}"
       ;;
@@ -111,7 +114,12 @@ EXTRA_VARS+="}"
 
 # Tasks tagged `gui` (hyprland, waybar, ... configs) only run with --gui.
 ANSIBLE_ARGS=()
-[[ "$GUI" == true ]] || ANSIBLE_ARGS+=(--skip-tags gui)
+SKIP_TAGS=()
+[[ "$GUI" == true ]] || SKIP_TAGS+=(gui)
+[[ "$SKIP_ENV" == true ]] && SKIP_TAGS+=(environment)
+if [[ ${#SKIP_TAGS[@]} -gt 0 ]]; then
+  ANSIBLE_ARGS+=(--skip-tags "$(IFS=,; echo "${SKIP_TAGS[*]}")")
+fi
 
 PROMPT_TARGET="$TARGET_HOST"
 [[ -n "$SSH_PORT" ]] && PROMPT_TARGET+=":$SSH_PORT"
