@@ -102,7 +102,7 @@ source "$ZDOTDIR/prompt.zsh"
 
 
 # Custom
-touch $ZDOTDIR/custom.zsh
+[[ -e "$ZDOTDIR/custom.zsh" ]] || touch "$ZDOTDIR/custom.zsh"
 source "$ZDOTDIR/custom.zsh"
 
 
@@ -124,7 +124,6 @@ function y() {
 # NVM
 # =========================================================
 source /usr/share/nvm/init-nvm.sh
-
 
 
 
