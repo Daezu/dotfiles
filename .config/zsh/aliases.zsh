@@ -55,3 +55,5 @@ alias pip='uv pip'
 alias docker='podman'
 
 alias nc='ncat'
+
+alias dev='sudo -iu dev'
