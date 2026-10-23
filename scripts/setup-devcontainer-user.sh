@@ -40,7 +40,7 @@ done
 log "Creating group '$SHARE_GROUP' and user '$DEV_USER'"
 getent group "$SHARE_GROUP" >/dev/null || groupadd "$SHARE_GROUP"
 if ! id "$DEV_USER" &>/dev/null; then
-  useradd -m -s /bin/bash -G "$SHARE_GROUP" "$DEV_USER"
+  useradd -m -s /bin/zsh -G "$SHARE_GROUP" "$DEV_USER"
   passwd -l "$DEV_USER" >/dev/null   # no password login, SSH key only
 fi
 usermod -aG "$SHARE_GROUP" "$DEV_USER"
