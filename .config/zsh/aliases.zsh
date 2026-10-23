@@ -56,4 +56,4 @@ alias docker='podman'
 
 alias nc='ncat'
 
-alias dev="sudo -Hu dev sh -c 'cd /srv/dev && exec zsh -il'"
+alias dev="sudo -iu dev sh -c 'cd /srv/dev && exec zsh -il'"
