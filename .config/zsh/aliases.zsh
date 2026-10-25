@@ -49,7 +49,8 @@ alias vim='nvim'
 # =========================================================
 alias dotfiles='/usr/bin/git --git-dir="$HOME/.dotfiles/" --work-tree="$HOME"'
 
-alias ssh='kitty +kitten ssh'
+# the kitten only works inside kitty, ghostty handles ssh via shell integration
+[[ $TERM == xterm-kitty ]] && alias ssh='kitty +kitten ssh'
 alias pip='uv pip'
 
 alias docker='podman'

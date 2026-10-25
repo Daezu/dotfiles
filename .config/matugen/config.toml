@@ -51,6 +51,11 @@ output_path = "~/.config/kitty/colors.conf"
 post_hook   = "kill -SIGUSR1 $(pidof kitty) 2>/dev/null || true"
 #index       = 1
 
+[templates.ghostty]
+input_path  = "./matugen-themes/templates/ghostty"
+output_path = "~/.config/ghostty/colors.ghostty"
+post_hook   = "pkill -USR2 -x ghostty 2>/dev/null || true" # SIGUSR2 reloads the config
+
 [templates.qt6ct]
 input_path = "./matugen-themes/templates/qtct-colors.conf"
 output_path = "~/.config/qt6ct/qt6ct.conf"

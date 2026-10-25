@@ -15,7 +15,7 @@ hl.monitor({ output = "", mode = "preferred", position = "auto", scale = 1 })
 ---- MY PROGRAMS ----
 ---------------------
 
-local terminal = "kitty"
+local terminal = "ghostty"
 local fileManager = "dolphin"
 local menu = "hyprlauncher" -- rofi
 

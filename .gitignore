@@ -13,6 +13,7 @@
 # matugen/style/color files
 .config/gtk-3.0/colors.css
 .config/gtk-4.0/colors.css
+.config/ghostty/colors.ghostty
 .config/hypr/colors.lua
 .config/kitty/colors.conf
 .config/nvim/matugen.lua

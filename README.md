@@ -9,6 +9,7 @@ Niklas Böer's personal dotfiles and machine setup for a Hyprland-based Linux de
 | [Hyprland](https://hyprland.org/) | `.config/hypr` — window manager config (Lua), lock screen, wallpaper daemon, helper scripts |
 | [Waybar](https://github.com/Alexays/Waybar) | `.config/waybar` |
 | [Kitty](https://sw.kovidgoyal.net/kitty/) | `.config/kitty` |
+| [Ghostty](https://ghostty.org/) | `.config/ghostty` — default terminal, colors via Matugen |
 | [Neovim](https://neovim.io/) | `.config/nvim` |
 | Zsh | `.config/zsh` — aliases, keybindings, [fzf](https://github.com/junegunn/fzf), plugin loader, [Starship](https://starship.rs/) prompt |
 | [Yazi](https://yazi-rs.github.io/) | `.config/yazi` |
@@ -41,7 +42,7 @@ sudo -iu dev
 
 This still installs the per-user tools and can download Node and plugins. With both skip flags, the installer does not ask for a sudo password.
 
-By default only CLI-relevant stuff is set up, so the same command works on servers and devcontainers. On a desktop, add `--gui` to also set up the graphical side (Hyprland, Waybar, Kitty, GTK, ...):
+By default only CLI-relevant stuff is set up, so the same command works on servers and devcontainers. On a desktop, add `--gui` to also set up the graphical side (Hyprland, Waybar, Kitty, Ghostty, GTK, ...):
 
 ```sh
 ./install.sh --gui
