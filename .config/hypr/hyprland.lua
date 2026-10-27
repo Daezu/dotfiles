@@ -25,6 +25,7 @@ local menu = "hyprlauncher" -- rofi
 -------------------
 
 hl.on("hyprland.start", function()
+    hl.exec_cmd("awww-daemon")
     hl.exec_cmd("hyprctl dispatch workspace 1")
     hl.exec_cmd("flatpak run org.mozilla.firefox")
     hl.exec_cmd("~/.config/hypr/close_on_unfocus.sh")
