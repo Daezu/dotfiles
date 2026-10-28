@@ -27,7 +27,7 @@ Everything is driven by a small Ansible playbook under `install/`; `install.sh` 
 ./install.sh
 ```
 
-This symlinks every top-level entry in this repo (and every CLI app folder under `.config/`) into the right place under `$HOME`, installing any missing CLI dependencies (`eza`, `bat`, `fd`, `starship`, `yazi`, `nvim`, `rustup`, `nvm`/Node, …) along the way. Anything already present at a destination gets backed up first, under `~/.dotfiles_backup/<timestamp>/`.
+The installer places every top-level entry in this repo, every CLI app folder under `.config/`, and every immediate entry under `.codex/` into the right place under `$HOME`. It symlinks by default; `--copy` copies the entries instead. The `.codex` entries are placed individually under `~/.codex/`; the repository's `.codex` directory itself is not linked. The installer also installs any missing CLI dependencies (`eza`, `bat`, `fd`, `starship`, `yazi`, `nvim`, `rustup`, `nvm`/Node, …). Anything already present at a destination gets backed up first, under `~/.dotfiles_backup/<timestamp>/`.
 
 Shared tools are installed with sudo through apt/pacman. Missing Yazi, Tree-sitter, uv, and Devsy executables use upstream releases installed as root under `/usr/local/bin`. Downloads are staged in a private temporary directory and removed afterward. Existing installations under `~/.local/bin` are preserved and can still take precedence in your PATH.
 
@@ -125,6 +125,7 @@ To keep the values somewhere else entirely, point at any file with
 ```
 .
 ├── .config/            # app configs, symlinked into ~/.config/<app>
+├── .codex/             # Codex config and tools, placed individually into ~/.codex
 ├── environment.yml.example  # template for machine-specific /etc/environment vars
 ├── environment.yml      # your copy of the above, gitignored (not committed)
 ├── install/

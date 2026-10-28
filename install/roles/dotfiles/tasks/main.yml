@@ -1,8 +1,7 @@
 ---
 # Links/copies this repo's dotfiles into $HOME. Any app folder under .config/,
-# or any other top-level entry in this repo, is picked up automatically via
-# the two `find` tasks below — adding a new app to the repo does not require
-# touching this role.
+# any entry under .codex/, or any other top-level entry in this repo, is picked
+# up automatically via the `find` tasks below.
 
 
 - name: Determine whether this run is targeting a remote host over SSH
@@ -35,6 +34,7 @@
           {{ ['tar', '-czf', dotfiles_tarball.path]
              + (dotfiles_stage_exclude | map('regex_replace', '^', '--exclude=') | list)
              + (dotfiles_exclude_names | reject('equalto', '.config')
+                | reject('equalto', '.codex')
                 | map('regex_replace', '^', '--exclude=./') | list)
              + ['-C', dotfiles_dir, '.'] }}
       delegate_to: localhost
@@ -80,7 +80,15 @@
     recurse: false
   register: config_entries
 
-- name: Build the placement list (top-level and CLI .config entries)
+- name: Discover .codex entries
+  ansible.builtin.find:
+    paths: "{{ dotfiles_dir }}/.codex"
+    file_type: any
+    hidden: true
+    recurse: false
+  register: codex_entries
+
+- name: Build the placement list (top-level, .config, and .codex entries)
   ansible.builtin.set_fact:
     dotfiles_items: >-
       {%- set items = [] -%}
@@ -89,6 +97,9 @@
       {%- endfor -%}
       {%- for f in config_entries.files if (f.path | basename) not in dotfiles_gui_names -%}
       {%- set _ = items.append({'src': f.path, 'dest': ansible_facts.env.HOME ~ '/.config/' ~ (f.path | basename)}) -%}
+      {%- endfor -%}
+      {%- for f in codex_entries.files -%}
+      {%- set _ = items.append({'src': f.path, 'dest': ansible_facts.env.HOME ~ '/.codex/' ~ (f.path | basename)}) -%}
       {%- endfor -%}
       {{ items }}
 
