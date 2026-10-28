@@ -21,6 +21,7 @@ style_user = "color8 bold"
 style_root = "error bold"
 format = "[](fg:color4)[$user](fg:$style bg:color4)[](fg:color4)"
 show_always = true
+#detect_env_vars = ["SSH_CONNECTION", "SSH_CLIENT", "SSH_TTY"]
 
 [os]
 disabled = false
