@@ -1,0 +1,60 @@
+
+# --- deny
+
+prefix_rule(
+    pattern = [["curl", "wget"]],
+    decision = "forbidden",
+    justification = "Network downloads are blocked by policy",
+    match = ["curl https://example.com", "wget https://example.com"],
+)
+
+
+prefix_rule(
+    pattern = ["rm", ["-rf", "-fr"]],
+    decision = "forbidden",
+    justification = "Recursive force delete is blocked: delete specific files instead.",
+    match = ["rm -rf build", "rm -fr /tmp/x"],
+    not_match = ["rm file.txt"]
+)
+
+
+
+prefix_rule(
+    pattern = ["git", "push", ["--force", "-f", "--force-with-lease"]],
+    decision = "forbidden",
+    justification = "Force pushes are blocked.",
+    match = ["git push --force", "git push -f origin main"],
+)
+
+
+prefix_rule(
+    pattern = ["sudo"],
+    decision = "forbidden",
+    justification = "sudo is blocked.",
+    match = ["sudo apt install foo"],
+)
+
+
+
+
+
+
+# --- ask
+
+
+
+prefix_rule(
+    pattern = ["git", "push"],
+    decision = "prompt",
+    justification = "Confirm before pushing.",
+    match = ["git push", "git push origin main"],
+)
+
+
+
+
+
+
+
+
+
