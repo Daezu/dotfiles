@@ -125,10 +125,41 @@ PROMPT_TARGET="$TARGET_HOST"
 [[ -n "$SSH_PORT" ]] && PROMPT_TARGET+=":$SSH_PORT"
 [[ -n "$SSH_USER" ]] && PROMPT_TARGET="$SSH_USER@$PROMPT_TARGET"
 
+ensure_ansible_playbook() {
+    if command -v ansible-playbook >/dev/null 2>&1; then
+        return
+    fi
+
+    echo "ansible-playbook is not installed; installing Ansible..."
+    local -a privilege=()
+    if [[ "$EUID" -ne 0 ]]; then
+        command -v sudo >/dev/null 2>&1 || {
+            echo "sudo is required to install Ansible. Install it or rerun this script as root." >&2
+            return 1
+        }
+        privilege=(sudo)
+    fi
+
+    if command -v apt-get >/dev/null 2>&1; then
+        "${privilege[@]}" apt-get install -y ansible-core
+    elif command -v pacman >/dev/null 2>&1; then
+        "${privilege[@]}" pacman -S --needed --noconfirm ansible
+    else
+        echo "Cannot install Ansible: this script supports apt and pacman." >&2
+        return 1
+    fi
+
+    if ! command -v ansible-playbook >/dev/null 2>&1; then
+        echo "Ansible installation finished, but ansible-playbook is still unavailable." >&2
+        return 1
+    fi
+}
+
 read -p "Run installation on $PROMPT_TARGET? (y/n)" -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
+    ensure_ansible_playbook
     if [[ "$SKIP_PACKAGES" != true || "$SKIP_ENV" != true ]]; then
         ANSIBLE_ARGS+=(--ask-become-pass)
     fi
