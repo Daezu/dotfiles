@@ -18,10 +18,11 @@ SSH_USER=""
 WSL_USER=""
 LOCAL_FILE=""
 PNPM_VERSION=""
+YES=false
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [--symlink|--copy] [--gui] [--rust] [--skip-packages] [--skip-env] [-i HOST] [-p PORT] [-u USER] [--local-file=PATH]
+Usage: $(basename "$0") [-y|--yes] [--symlink|--copy] [--gui] [--rust] [--skip-packages] [--skip-env] [-i HOST] [-p PORT] [-u USER] [--local-file=PATH]
                         [--pnpm-version VERSION]
        $(basename "$0") --wsl=WIN_USER
 
@@ -32,6 +33,7 @@ Usage: $(basename "$0") [--symlink|--copy] [--gui] [--rust] [--skip-packages] [-
   --rust           Also download the stable rust toolchain via rustup
   --skip-packages  Skip system tools; still set up per-user Node, pnpm and plugins
   --skip-env       Skip loading and applying system environment variables
+  -y, --yes        Skip the installation confirmation prompt
   -i HOST          Target host to install on over SSH (default: localhost, no SSH)
   -p PORT          SSH port to use with -i (default: 22)
   -u USER          SSH user to use with -i (default: your ssh client's own default)
@@ -48,6 +50,7 @@ EOF
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    -y|--yes) YES=true ;;
     --symlink) MODE="symlink" ;;
     --copy) MODE="copy" ;;
     --gui) GUI=true ;;
@@ -155,10 +158,11 @@ ensure_ansible_playbook() {
     fi
 }
 
-read -p "Run installation on $PROMPT_TARGET? (y/n)" -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]
-then
+if [[ "$YES" != true ]]; then
+    read -p "Run installation on $PROMPT_TARGET? (y/n)" -n 1 -r
+    echo
+fi
+if [[ "$YES" == true || $REPLY =~ ^[Yy]$ ]]; then
     ensure_ansible_playbook
     if [[ "$SKIP_PACKAGES" != true || "$SKIP_ENV" != true ]]; then
         ANSIBLE_ARGS+=(--ask-become-pass)
