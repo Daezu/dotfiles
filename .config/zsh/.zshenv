@@ -2,6 +2,8 @@
 
 skip_global_compinit=1
 
+export DOTDIR=${ZDOTDIR:A:h:h} # :A resolve symlink | :h go back on folder
+
 # ---------- XDG base directories ----------
 # Centralizes config/cache/data locations
 export XDG_CONFIG_HOME="$HOME/.config"
