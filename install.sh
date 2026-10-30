@@ -19,10 +19,11 @@ WSL_USER=""
 LOCAL_FILE=""
 PNPM_VERSION=""
 YES=false
+ASK_BECOME_PASS=true
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [-y|--yes] [--symlink|--copy] [--gui] [--rust] [--skip-packages] [--skip-env] [-i HOST] [-p PORT] [-u USER] [--local-file=PATH]
+Usage: $(basename "$0") [-y|--yes] [--symlink|--copy] [--gui] [--rust] [--skip-packages] [--skip-env] [--no-become-pass] [-i HOST] [-p PORT] [-u USER] [--local-file=PATH]
                         [--pnpm-version VERSION]
        $(basename "$0") --wsl=WIN_USER
 
@@ -33,6 +34,7 @@ Usage: $(basename "$0") [-y|--yes] [--symlink|--copy] [--gui] [--rust] [--skip-p
   --rust           Also download the stable rust toolchain via rustup
   --skip-packages  Skip system tools; still set up per-user Node, pnpm and plugins
   --skip-env       Skip loading and applying system environment variables
+  --no-become-pass Do not prompt for an Ansible become password; use root or passwordless sudo
   -y, --yes        Skip the installation confirmation prompt
   -i HOST          Target host to install on over SSH (default: localhost, no SSH)
   -p PORT          SSH port to use with -i (default: 22)
@@ -57,6 +59,7 @@ while [[ $# -gt 0 ]]; do
     --rust) RUST=true ;;
     --skip-packages) SKIP_PACKAGES=true ;;
     --skip-env) SKIP_ENV=true ;;
+    --no-become-pass) ASK_BECOME_PASS=false ;;
     --wsl=*)
       WSL_USER="${1#--wsl=}"
       ;;
@@ -164,12 +167,18 @@ if [[ "$YES" != true ]]; then
 fi
 if [[ "$YES" == true || $REPLY =~ ^[Yy]$ ]]; then
     ensure_ansible_playbook
-    if [[ "$SKIP_PACKAGES" != true || "$SKIP_ENV" != true ]]; then
-        ANSIBLE_ARGS+=(--ask-become-pass)
+    if [[ "$ASK_BECOME_PASS" == true ]]; then
+        if [[ "$SKIP_PACKAGES" != true || "$SKIP_ENV" != true ]]; then
+            ANSIBLE_ARGS+=(--ask-become-pass)
+        fi
     fi
     ansible-playbook -i "$TARGET_HOST," "$SCRIPT_DIR/install/playbook.yml" -e "$EXTRA_VARS" "${ANSIBLE_ARGS[@]}"
     if [[ -n "$WSL_USER" ]]; then
-        ansible-playbook "$SCRIPT_DIR/install/roles/wsl/tasks/main.yml" -e "windows_user=$WSL_USER" --ask-become-pass
+        WSL_ANSIBLE_ARGS=()
+        if [[ "$ASK_BECOME_PASS" == true ]]; then
+            WSL_ANSIBLE_ARGS+=(--ask-become-pass)
+        fi
+        ansible-playbook "$SCRIPT_DIR/install/roles/wsl/tasks/main.yml" -e "windows_user=$WSL_USER" "${WSL_ANSIBLE_ARGS[@]}"
     fi
 else
     echo "aborted"

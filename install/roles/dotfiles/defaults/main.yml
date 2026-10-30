@@ -15,14 +15,12 @@ dotfiles_exclude_names:
   - README
   - LICENSE
   - install.sh
-  - ansible.cfg
-  - playbook.yml
-  - roles
   - install
   - .config
   - .codex
   - environment.yml
   - environment.yml.example
+  - devcontainer
 
 # .config entries only placed on graphical machines (install.sh --gui)
 dotfiles_gui_names:

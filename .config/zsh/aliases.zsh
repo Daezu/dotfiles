@@ -58,3 +58,15 @@ alias docker='podman'
 alias nc='ncat'
 
 alias dev="sudo -iu dev sh -c 'cd /srv/dev && exec zsh -il'"
+
+# =========================================================
+# Devsy
+# =========================================================
+devsy() {
+  if [[ "$1 $2" == "workspace up" ]]; then
+    command devsy "$@" --mount "type=bind,source=$DOTDIR,target=/srv/dotfiles"
+  else
+    command devsy "$@"
+  fi
+}
+

@@ -13,6 +13,17 @@
     group: root
     mode: "0755"
 
+- name: Check if Starship is already available to the invoking user
+  become: false
+  ansible.builtin.shell: command -v starship
+  args:
+    executable: /bin/bash
+  environment:
+    PATH: "{{ ansible_facts.env.PATH }}"
+  register: starship_probe
+  changed_when: false
+  failed_when: false
+
 # One package-manager transaction for everything (package lists live in
 # defaults/main.yml) instead of one per tool.
 - name: Install packages - apt
@@ -30,6 +41,152 @@
     name: "{{ packages_common + packages_pacman }}"
     state: present
   when: ansible_facts.pkg_mgr == 'pacman'
+
+- name: Install Starship with the package manager
+  become: true
+  ansible.builtin.package:
+    name: starship
+    state: present
+  when:
+    - ansible_facts.pkg_mgr in ['apt', 'pacman']
+    - starship_probe.rc != 0
+  register: starship_package_install
+  ignore_errors: true
+
+- name: Install Starship with the upstream installer if package install failed
+  become: true
+  ansible.builtin.shell: |
+    set -o pipefail
+    curl -sS https://starship.rs/install.sh | sh -s -- -y
+  args:
+    executable: /bin/bash
+  when:
+    - starship_probe.rc != 0
+    - starship_package_install is failed
+
+- name: Check installed shared Neovim version
+  ansible.builtin.shell: |
+    set -o pipefail
+    if ! command -v nvim >/dev/null 2>&1; then
+      exit 1
+    fi
+    nvim --version | sed -n '1s/^NVIM v//p'
+  args:
+    executable: /bin/bash
+  environment:
+    PATH: "{{ system_bin }}:/usr/bin:/bin"
+  register: neovim_probe
+  changed_when: false
+  failed_when: false
+
+- name: Mark Neovim for installation when it is missing
+  ansible.builtin.set_fact:
+    neovim_install_required: true
+  when: neovim_probe.rc != 0
+
+- name: Check whether installed Neovim meets the minimum version
+  ansible.builtin.set_fact:
+    neovim_install_required: >-
+      {{ (neovim_probe.stdout | trim) is version(neovim_minimum_version, '<', version_type='semver') }}
+  when: neovim_probe.rc == 0
+
+- name: Install the latest stable Neovim when missing or too old
+  when: neovim_install_required | bool
+  block:
+    - name: Fetch latest stable Neovim release metadata
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/neovim/neovim/releases/latest
+        headers:
+          Accept: application/vnd.github+json
+        return_content: true
+        status_code: 200
+        timeout: 60
+      register: neovim_release
+      changed_when: false
+      until: neovim_release is succeeded
+      retries: 3
+      delay: 5
+
+    - name: Record latest stable Neovim release version
+      ansible.builtin.set_fact:
+        neovim_release_version: "{{ neovim_release.json.tag_name | regex_replace('^v', '') }}"
+
+    - name: Ensure latest stable Neovim meets the minimum version
+      ansible.builtin.assert:
+        that:
+          - neovim_release_version is version(neovim_minimum_version, '>=', version_type='semver')
+        fail_msg: >-
+          Latest stable Neovim is {{ neovim_release_version }}, below the required
+          {{ neovim_minimum_version }}.
+
+    - name: Ensure Neovim release architecture is supported
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.architecture in neovim_arch_map
+        fail_msg: "No Neovim release asset is configured for {{ ansible_facts.architecture }}."
+
+    - name: Create a private Neovim release staging directory
+      ansible.builtin.tempfile:
+        state: directory
+        prefix: dotfiles-neovim-
+      register: neovim_stage
+
+    - name: Download latest stable Neovim
+      ansible.builtin.get_url:
+        url: "https://github.com/neovim/neovim/releases/download/{{ neovim_release.json.tag_name }}/nvim-linux-{{ neovim_arch_map[ansible_facts.architecture] }}.tar.gz"
+        dest: "{{ neovim_stage.path }}/nvim.tar.gz"
+        mode: "0644"
+        timeout: 60
+      register: neovim_archive_download
+      until: neovim_archive_download is succeeded
+      retries: 3
+      delay: 5
+
+    - name: Create versioned Neovim installation directory
+      ansible.builtin.file:
+        path: "/opt/dotfiles-neovim-{{ neovim_release_version }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Extract Neovim release
+      ansible.builtin.unarchive:
+        src: "{{ neovim_stage.path }}/nvim.tar.gz"
+        dest: "/opt/dotfiles-neovim-{{ neovim_release_version }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components=1
+        creates: "/opt/dotfiles-neovim-{{ neovim_release_version }}/bin/nvim"
+
+    - name: Point the shared Neovim command at the upstream release
+      ansible.builtin.file:
+        src: "/opt/dotfiles-neovim-{{ neovim_release_version }}/bin/nvim"
+        dest: "{{ system_bin }}/nvim"
+        state: link
+        force: true
+        owner: root
+        group: root
+
+    - name: Find previous dotfiles-managed Neovim releases
+      ansible.builtin.find:
+        paths: /opt
+        patterns: dotfiles-neovim-*
+        file_type: directory
+      register: previous_neovim_releases
+
+    - name: Remove previous dotfiles-managed Neovim releases
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ previous_neovim_releases.files }}"
+      when: item.path != ('/opt/dotfiles-neovim-' ~ neovim_release_version)
+  always:
+    - name: Remove Neovim release staging directory
+      ansible.builtin.file:
+        path: "{{ neovim_stage.path }}"
+        state: absent
+      when: neovim_stage.path is defined
 
 - name: Ensure XDG_CONFIG_HOME and ZDOTDIR block is present
   become: true

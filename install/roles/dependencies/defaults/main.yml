@@ -26,14 +26,12 @@ packages_common:
   - git
   - unzip
   - rustup
-  - starship
   - zsh
   - fzf
   - bat
   - eza
   - lf
   - ripgrep
-  - neovim
   - podman
   - acl
 packages_apt:
@@ -65,4 +63,8 @@ uv_arch_map:
   aarch64: aarch64
 devsy_arch_map:
   x86_64: amd64
+  aarch64: arm64
+neovim_minimum_version: "0.12.0"
+neovim_arch_map:
+  x86_64: x86_64
   aarch64: arm64

@@ -29,7 +29,7 @@ Everything is driven by a small Ansible playbook under `install/`; `install.sh` 
 
 The installer places every top-level entry in this repo, every CLI app folder under `.config/`, and every immediate entry under `.codex/` into the right place under `$HOME`. It symlinks by default; `--copy` copies the entries instead. The `.codex` entries are placed individually under `~/.codex/`; the repository's `.codex` directory itself is not linked. The installer also installs any missing CLI dependencies (`eza`, `bat`, `fd`, `starship`, `yazi`, `nvim`, `rustup`, `nvm`/Node, …). Anything already present at a destination gets backed up first, under `~/.dotfiles_backup/<timestamp>/`.
 
-Shared tools are installed with sudo through apt/pacman. Missing Yazi, Tree-sitter, uv, and Devsy executables use upstream releases installed as root under `/usr/local/bin`. Downloads are staged in a private temporary directory and removed afterward. Existing installations under `~/.local/bin` are preserved and can still take precedence in your PATH.
+Shared tools are installed with sudo through apt/pacman. Neovim is ensured at version 0.12.0 or newer, using the latest stable upstream release when missing or older. Missing Yazi, Tree-sitter, uv, and Devsy executables use upstream releases installed as root under `/usr/local/bin`. Downloads are staged in a private temporary directory and removed afterward. Existing installations under `~/.local/bin` are preserved and can still take precedence in your PATH.
 
 NVM, Node, pnpm, Zsh plugins, and optional Rust toolchains are set up separately for the target user. Editor plugins, caches, credentials, Podman storage, and Devsy configuration remain in that user's home. An existing `NVM_DIR` is respected, including in devcontainers.
 
@@ -53,7 +53,7 @@ GUI-only work is flagged with the Ansible tag `gui`; without `--gui`, `install.s
 ### Options
 
 ```
-./install.sh [--symlink|--copy] [--gui] [--rust] [--skip-packages] [--skip-env] [-i HOST] [-p PORT] [-u USER] [--local-file=PATH]
+./install.sh [--symlink|--copy] [--gui] [--rust] [--skip-packages] [--skip-env] [--no-become-pass] [-i HOST] [-p PORT] [-u USER] [--local-file=PATH]
              [--pnpm-version VERSION]
 
   --symlink        Symlink dotfiles into $HOME (default)
@@ -62,6 +62,7 @@ GUI-only work is flagged with the Ansible tag `gui`; without `--gui`, `install.s
   --rust           Also download the stable rust toolchain via rustup
   --skip-packages  Skip system tools; still set up per-user Node, pnpm and plugins
   --skip-env       Skip loading and applying system environment variables
+  --no-become-pass Do not prompt for an Ansible become password; use root or passwordless sudo
   -i HOST          Target host to install on over SSH (default: localhost)
   -p PORT          SSH port to use with -i (default: 22)
   -u USER          SSH user to use with -i
@@ -109,6 +110,8 @@ To keep the values somewhere else entirely, point at any file with
 - `ansible-playbook` on the machine you run `install.sh` from (bootstrap with `sudo apt install ansible-core` or `sudo pacman -S ansible-core`)
 - `sudo` access on the target for package installation (skip with `--skip-packages`)
 - Supported package managers: `apt`, `pacman`
+
+For a noninteractive full install, pass `--no-become-pass` and run as root or with passwordless sudo. This is useful when invoking the installer from a container lifecycle or Devsy command.
 
 ## WSL: Windows Terminal font
 
