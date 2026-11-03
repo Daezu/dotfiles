@@ -5,6 +5,11 @@
     state: directory
     mode: '0755'
 
+- name: Check whether the user's local Zsh environment file exists
+  ansible.builtin.stat:
+    path: "{{ ansible_facts.env.HOME }}/.config/zsh/local.zsh"
+  register: macos_local_zsh_stat
+
 - name: Set machine-specific variables in the user's Zsh config
   ansible.builtin.blockinfile:
     path: "{{ ansible_facts.env.HOME }}/.config/zsh/local.zsh"
@@ -22,4 +27,6 @@
     path: "{{ ansible_facts.env.HOME }}/.config/zsh/local.zsh"
     state: absent
     marker: "# {mark} ANSIBLE MANAGED MACHINE ENVIRONMENT"
-  when: (system_environment_vars | default({})) | length == 0
+  when:
+    - (system_environment_vars | default({})) | length == 0
+    - macos_local_zsh_stat.stat.exists
