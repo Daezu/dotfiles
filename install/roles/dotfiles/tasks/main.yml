@@ -174,3 +174,11 @@
     line: 'export ZDOTDIR="{{ ansible_facts.env.HOME }}/.config/zsh"'
     regexp: '^export ZDOTDIR='
   when: (ansible_facts.env.HOME ~ '/.config/zsh') in (dotfiles_items | map(attribute='dest') | list)
+
+- name: Source the ZDOTDIR .zshenv from the home bootstrap
+  ansible.builtin.lineinfile:
+    path: "{{ ansible_facts.env.HOME }}/.zshenv"
+    create: true
+    line: '[[ -r "$ZDOTDIR/.zshenv" ]] && source "$ZDOTDIR/.zshenv"'
+    insertafter: '^export ZDOTDIR='
+  when: (ansible_facts.env.HOME ~ '/.config/zsh') in (dotfiles_items | map(attribute='dest') | list)
