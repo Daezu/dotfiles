@@ -5,6 +5,7 @@
 
 # per-machine environment variables (see environment.yml.example)
 /environment.yml
+local.zsh
 
 # secrets
 .secret
