@@ -6,6 +6,7 @@
 # per-machine environment variables (see environment.yml.example)
 /environment.yml
 local.zsh
+.zsh_sessions
 
 # secrets
 .secret
