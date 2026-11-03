@@ -44,8 +44,8 @@ shell-integration          = zsh
 shell-integration-features = no-cursor,sudo,title,ssh-env,ssh-terminfo
 
 # --- Performance ---
-# io_uring can be sluggish on Hyprland
-async-backend = epoll
+# Let Ghostty select the native backend (epoll on Linux, kqueue on macOS).
+async-backend = auto
 
 # --- Keybinds ---
 # lets TUIs tell shift+enter apart from enter

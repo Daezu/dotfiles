@@ -1,0 +1,153 @@
+---
+- name: Find Homebrew
+  ansible.builtin.shell: |
+    for candidate in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+      if [ -x "$candidate" ]; then
+        printf '%s\n' "$candidate"
+        exit 0
+      fi
+    done
+    command -v brew
+  args:
+    executable: /bin/bash
+  register: macos_brew_probe
+  changed_when: false
+  failed_when: false
+
+- name: Require Homebrew on macOS
+  ansible.builtin.assert:
+    that: macos_brew_probe.rc == 0
+    fail_msg: >-
+      Homebrew is required for macOS setup. Install Homebrew first, then rerun
+      install.sh.
+
+- name: Record Homebrew executable
+  ansible.builtin.set_fact:
+    macos_brew: "{{ macos_brew_probe.stdout | trim }}"
+
+- name: List packages provided by Homebrew on macOS
+  ansible.builtin.set_fact:
+    macos_packages:
+      - curl
+      - git
+      - unzip
+      - rustup
+      - fzf
+      - bat
+      - eza
+      - lf
+      - ripgrep
+      - fd
+      - yazi
+      - tree-sitter
+      - uv
+      - starship
+      - neovim
+      - nmap
+      - podman
+
+- name: Check which Homebrew packages are already installed
+  ansible.builtin.command:
+    argv:
+      - "{{ macos_brew }}"
+      - list
+      - --versions
+      - "{{ item }}"
+  loop: "{{ macos_packages }}"
+  register: macos_brew_package_checks
+  changed_when: false
+  failed_when: false
+
+- name: Install missing Homebrew packages
+  ansible.builtin.command:
+    argv:
+      - "{{ macos_brew }}"
+      - install
+      - "{{ item.item }}"
+  loop: "{{ macos_brew_package_checks.results }}"
+  when: item.rc != 0
+
+- name: Check installed Neovim version
+  ansible.builtin.shell: |
+    nvim --version | sed -n '1s/^NVIM v//p'
+  args:
+    executable: /bin/bash
+  register: macos_neovim_version
+  changed_when: false
+  environment:
+    PATH: "{{ ansible_facts.env.PATH }}:{{ macos_brew | dirname }}"
+
+- name: Upgrade Homebrew Neovim when it is below the required version
+  ansible.builtin.command:
+    argv:
+      - "{{ macos_brew }}"
+      - upgrade
+      - neovim
+  when: (macos_neovim_version.stdout | trim) is version(neovim_minimum_version, '<', version_type='semver')
+
+- name: Check whether Devsy is already available
+  ansible.builtin.shell: command -v devsy
+  args:
+    executable: /bin/bash
+  environment:
+    PATH: "{{ ansible_facts.env.PATH }}:{{ macos_brew | dirname }}:{{ local_bin }}"
+  register: macos_devsy_probe
+  changed_when: false
+  failed_when: false
+
+- name: Map macOS CPU architecture to the Devsy release name
+  ansible.builtin.set_fact:
+    macos_devsy_arch_map:
+      x86_64: amd64
+      arm64: arm64
+      aarch64: arm64
+  when: macos_devsy_probe.rc != 0
+
+- name: Ensure this macOS CPU architecture has a Devsy release mapping
+  ansible.builtin.assert:
+    that: ansible_facts.architecture in macos_devsy_arch_map
+    fail_msg: "No macOS Devsy release mapping exists for {{ ansible_facts.architecture }}."
+  when: macos_devsy_probe.rc != 0
+
+- name: Fetch latest Devsy release metadata for macOS
+  ansible.builtin.uri:
+    url: https://api.github.com/repos/devsy-org/devsy/releases/latest
+    headers:
+      Accept: application/vnd.github+json
+    return_content: true
+    status_code: 200
+    timeout: 60
+  register: macos_devsy_release
+  changed_when: false
+  when: macos_devsy_probe.rc != 0
+
+- name: Find the matching macOS Devsy release asset
+  ansible.builtin.set_fact:
+    macos_devsy_asset: >-
+      {{ macos_devsy_release.json.assets
+         | selectattr('name', 'equalto', 'devsy-darwin-' ~ macos_devsy_arch_map[ansible_facts.architecture])
+         | list }}
+  when: macos_devsy_probe.rc != 0
+
+- name: Require a macOS Devsy release asset
+  ansible.builtin.assert:
+    that: macos_devsy_asset | length > 0
+    fail_msg: >-
+      Devsy does not publish a macOS binary for {{ ansible_facts.architecture }}
+      in its latest release. Install a compatible Devsy build manually and rerun
+      the dotfiles installer.
+  when: macos_devsy_probe.rc != 0
+
+- name: Ensure the user's local binary directory exists
+  ansible.builtin.file:
+    path: "{{ local_bin }}"
+    state: directory
+    mode: '0755'
+  when: macos_devsy_probe.rc != 0
+
+- name: Install Devsy in the user's local binary directory
+  ansible.builtin.get_url:
+    url: "{{ macos_devsy_asset[0].browser_download_url }}"
+    dest: "{{ local_bin }}/devsy"
+    mode: '0755'
+  when: macos_devsy_probe.rc != 0

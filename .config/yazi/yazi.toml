@@ -15,7 +15,7 @@ edit = [
 	{ run = "$EDITOR %s", block = true, for = "unix" },
 ]
 open = [
-	{ run = "xdg-open %s", desc = "Open" },
+	{ run = "~/.config/yazi/open.sh %s", desc = "Open" },
 ]
 
 [open]

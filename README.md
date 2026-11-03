@@ -29,7 +29,9 @@ Everything is driven by a small Ansible playbook under `install/`; `install.sh` 
 
 The installer places every top-level entry in this repo, every CLI app folder under `.config/`, and every immediate entry under `.codex/` into the right place under `$HOME`. It symlinks by default; `--copy` copies the entries instead. The `.codex` entries are placed individually under `~/.codex/`; the repository's `.codex` directory itself is not linked. The installer also installs any missing CLI dependencies (`eza`, `bat`, `fd`, `starship`, `yazi`, `nvim`, `rustup`, `nvm`/Node, …). Anything already present at a destination gets backed up first, under `~/.dotfiles_backup/<timestamp>/`.
 
-Shared tools are installed with sudo through apt/pacman. Neovim is ensured at version 0.12.0 or newer, using the latest stable upstream release when missing or older. Missing Yazi, Tree-sitter, uv, and Devsy executables use upstream releases installed as root under `/usr/local/bin`. Downloads are staged in a private temporary directory and removed afterward. Existing installations under `~/.local/bin` are preserved and can still take precedence in your PATH.
+On Linux, shared tools are installed with sudo through apt/pacman. Neovim is ensured at version 0.12.0 or newer, using the latest stable upstream release when missing or older. Missing Yazi, Tree-sitter, uv, and Devsy executables use upstream releases installed as root under `/usr/local/bin`. Downloads are staged in a private temporary directory and removed afterward. Existing installations under `~/.local/bin` are preserved and can still take precedence in your PATH.
+
+On macOS, install Homebrew first. The installer uses it for CLI tools and installs Devsy into `~/.local/bin` when the latest upstream release includes a matching macOS binary. It does not use sudo for Homebrew packages. Podman runs in its macOS VM; create and start it once with `podman machine init && podman machine start` before using Devsy containers.
 
 NVM, Node, pnpm, Zsh plugins, and optional Rust toolchains are set up separately for the target user. Editor plugins, caches, credentials, Podman storage, and Devsy configuration remain in that user's home. An existing `NVM_DIR` is respected, including in devcontainers.
 
@@ -42,7 +44,7 @@ sudo -iu dev
 
 This still installs the per-user tools and can download Node and plugins. With both skip flags, the installer does not ask for a sudo password.
 
-By default only CLI-relevant stuff is set up, so the same command works on servers and devcontainers. On a desktop, add `--gui` to also set up the graphical side (Hyprland, Waybar, Kitty, Ghostty, GTK, ...):
+By default only CLI-relevant stuff is set up, so the same command works on servers and devcontainers. On a Linux desktop, add `--gui` to also set up the Linux desktop configs (Hyprland, Waybar, GTK, ...). Terminal apps such as Kitty and Ghostty are part of the default CLI setup:
 
 ```sh
 ./install.sh --gui
@@ -58,15 +60,16 @@ GUI-only work is flagged with the Ansible tag `gui`; without `--gui`, `install.s
 
   --symlink        Symlink dotfiles into $HOME (default)
   --copy           Copy dotfiles into $HOME instead of symlinking
-  --gui            Also set up GUI stuff (tasks tagged 'gui'); default is CLI-only
+  --gui            Also set up Linux desktop configs (tasks tagged 'gui'); default is CLI-only
   --rust           Also download the stable rust toolchain via rustup
-  --skip-packages  Skip system tools; still set up per-user Node, pnpm and plugins
-  --skip-env       Skip loading and applying system environment variables
+  --skip-packages  Skip OS package tools; still set up per-user Node, pnpm and plugins
+  --skip-env       Skip loading and applying machine-specific environment variables
   --no-become-pass Do not prompt for an Ansible become password; use root or passwordless sudo
   -i HOST          Target host to install on over SSH (default: localhost)
   -p PORT          SSH port to use with -i (default: 22)
   -u USER          SSH user to use with -i
-  --local-file=PATH  YAML file of vars to write into /etc/environment
+  --local-file=PATH  YAML file of machine-specific environment variables
+                    (Linux: /etc/environment; macOS: user Zsh config)
                     (default: environment.yml at the repo root)
   --pnpm-version VERSION
                     Pin the pnpm version npm installs, e.g. 12.4.0
@@ -92,10 +95,11 @@ the file.
 
 ### Per-machine environment variables
 
-The first thing the playbook does, before anything else, is write custom key/value
-pairs into `/etc/environment`. Those values are machine-specific and never committed:
-copy `environment.yml.example` to `environment.yml` (gitignored) and fill in whatever
-vars this machine needs, e.g.:
+The first thing the playbook does, before anything else, is load custom
+machine-specific key/value pairs. On Linux they are written to `/etc/environment`;
+on macOS they are written to the user's untracked `~/.config/zsh/local.zsh`.
+The values are never committed. Copy `environment.yml.example` to
+`environment.yml` (gitignored) and fill in whatever vars this machine needs, e.g.:
 
 ```yaml
 system_environment_vars:
@@ -107,11 +111,11 @@ To keep the values somewhere else entirely, point at any file with
 
 ### Requirements
 
-- `ansible-playbook` on the machine you run `install.sh` from (bootstrap with `sudo apt install ansible-core` or `sudo pacman -S ansible-core`)
-- `sudo` access on the target for package installation (skip with `--skip-packages`)
-- Supported package managers: `apt`, `pacman`
+- Linux: `ansible-playbook` on the machine you run `install.sh` from (bootstrap with `sudo apt install ansible-core` or `sudo pacman -S ansible-core`), plus sudo access for package installation (skip with `--skip-packages`)
+- macOS: Homebrew; if Ansible is missing, `install.sh` installs it with Homebrew
+- Supported package managers: `apt` and `pacman` on Linux; Homebrew on macOS
 
-For a noninteractive full install, pass `--no-become-pass` and run as root or with passwordless sudo. This is useful when invoking the installer from a container lifecycle or Devsy command.
+For a noninteractive full Linux install, pass `--no-become-pass` and run as root or with passwordless sudo. Local macOS installs do not use become. This is useful when invoking the Linux installer from a container lifecycle or Devsy command.
 
 ## WSL: Windows Terminal font
 
@@ -129,12 +133,12 @@ For a noninteractive full install, pass `--no-become-pass` and run as root or wi
 .
 ├── .config/            # app configs, symlinked into ~/.config/<app>
 ├── .codex/             # Codex config and tools, placed individually into ~/.codex
-├── environment.yml.example  # template for machine-specific /etc/environment vars
+├── environment.yml.example  # template for machine-specific environment vars
 ├── environment.yml      # your copy of the above, gitignored (not committed)
 ├── install/
 │   ├── playbook.yml     # entry point: environment + dotfiles + dependencies roles
 │   └── roles/
-│       ├── environment/  # writes environment.yml's vars into /etc/environment first
+│       ├── environment/  # applies machine-specific vars for Linux or macOS
 │       ├── dotfiles/     # discovers + links/copies repo contents into $HOME
 │       ├── dependencies/ # installs CLI tools these configs assume are present
 │       └── wsl/          # Windows Terminal font setup (WSL only, run manually)

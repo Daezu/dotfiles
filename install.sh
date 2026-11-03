@@ -13,6 +13,7 @@ SKIP_ENV=false
 GUI=false
 RUST=false
 TARGET_HOST=""
+LOCAL_TARGET=true
 SSH_PORT=""
 SSH_USER=""
 WSL_USER=""
@@ -29,17 +30,18 @@ Usage: $(basename "$0") [-y|--yes] [--symlink|--copy] [--gui] [--rust] [--skip-p
 
   --symlink        Symlink dotfiles into \$HOME (default)
   --copy           Copy dotfiles into \$HOME instead of symlinking
-  --gui            Also set up GUI stuff: tasks tagged 'gui' (Hyprland, Waybar,
-                    GTK, ...). Without it only CLI-relevant stuff is set up
+  --gui            Also set up Linux desktop configs (Hyprland, Waybar, GTK,
+                    ...). Without it only CLI-relevant stuff is set up
   --rust           Also download the stable rust toolchain via rustup
-  --skip-packages  Skip system tools; still set up per-user Node, pnpm and plugins
-  --skip-env       Skip loading and applying system environment variables
+  --skip-packages  Skip OS package tools; still set up per-user Node, pnpm and plugins
+  --skip-env       Skip loading and applying machine-specific environment variables
   --no-become-pass Do not prompt for an Ansible become password; use root or passwordless sudo
   -y, --yes        Skip the installation confirmation prompt
   -i HOST          Target host to install on over SSH (default: localhost, no SSH)
   -p PORT          SSH port to use with -i (default: 22)
   -u USER          SSH user to use with -i (default: your ssh client's own default)
   --local-file=PATH  YAML file of vars to write into /etc/environment
+                    on Linux or the user's Zsh config on macOS
                     (default: environment.yml at the repo root)
   --pnpm-version VERSION
                     Pin the pnpm version npm installs, e.g. 12.4.0
@@ -78,6 +80,7 @@ while [[ $# -gt 0 ]]; do
       shift
       [[ $# -gt 0 ]] || { echo "-i requires a host argument" >&2; usage >&2; exit 1; }
       TARGET_HOST="$1"
+      LOCAL_TARGET=false
       ;;
     -p)
       shift
@@ -110,9 +113,9 @@ fi
 [[ -n "$SSH_PORT" ]] && EXTRA_VARS+=", \"ansible_port\": $SSH_PORT"
 [[ -n "$SSH_USER" ]] && EXTRA_VARS+=", \"ansible_user\": \"$SSH_USER\""
 if [[ -n "$LOCAL_FILE" ]]; then
-  # Resolve against the caller's cwd (not SCRIPT_DIR) so relative paths like
-  # test/example.yaml behave the way the user typed them.
-  LOCAL_FILE="$(realpath -m "$LOCAL_FILE")"
+  # Resolve relative paths against the caller's cwd without relying on GNU
+  # realpath flags that are not available on every macOS version.
+  [[ "$LOCAL_FILE" = /* ]] || LOCAL_FILE="$PWD/$LOCAL_FILE"
   EXTRA_VARS+=", \"environment_vars_file\": \"$LOCAL_FILE\""
 fi
 [[ -n "$PNPM_VERSION" ]] && EXTRA_VARS+=", \"pnpm_version\": \"$PNPM_VERSION\""
@@ -150,9 +153,21 @@ ensure_ansible_playbook() {
         "${privilege[@]}" apt-get install -y ansible-core
     elif command -v pacman >/dev/null 2>&1; then
         "${privilege[@]}" pacman -S --needed --noconfirm ansible
+    elif command -v brew >/dev/null 2>&1; then
+        brew install ansible
+    elif [[ -x /opt/homebrew/bin/brew ]]; then
+        /opt/homebrew/bin/brew install ansible
+    elif [[ -x /usr/local/bin/brew ]]; then
+        /usr/local/bin/brew install ansible
     else
-        echo "Cannot install Ansible: this script supports apt and pacman." >&2
+        echo "Cannot install Ansible: install Homebrew first on macOS, or use apt/pacman on Linux." >&2
         return 1
+    fi
+
+    if [[ -x /opt/homebrew/bin/ansible-playbook ]]; then
+        export PATH="/opt/homebrew/bin:$PATH"
+    elif [[ -x /usr/local/bin/ansible-playbook ]]; then
+        export PATH="/usr/local/bin:$PATH"
     fi
 
     if ! command -v ansible-playbook >/dev/null 2>&1; then
@@ -167,7 +182,9 @@ if [[ "$YES" != true ]]; then
 fi
 if [[ "$YES" == true || $REPLY =~ ^[Yy]$ ]]; then
     ensure_ansible_playbook
-    if [[ "$ASK_BECOME_PASS" == true ]]; then
+    LOCAL_MACOS=false
+    [[ "$LOCAL_TARGET" == true && "$(uname -s)" == Darwin ]] && LOCAL_MACOS=true
+    if [[ "$ASK_BECOME_PASS" == true && "$LOCAL_MACOS" != true ]]; then
         if [[ "$SKIP_PACKAGES" != true || "$SKIP_ENV" != true ]]; then
             ANSIBLE_ARGS+=(--ask-become-pass)
         fi

@@ -35,7 +35,9 @@
 - name: Set npm registry if env var is set
   ansible.builtin.shell: |
     set -e
-    set -a; . /etc/environment; set +a
+    if [ -r /etc/environment ]; then
+      set -a; . /etc/environment; set +a
+    fi
     source "{{ nvm_dir }}/nvm.sh"
     if [ -n "${NPM_CONFIG_REGISTRY:-}" ]; then
       npm config set registry "$NPM_CONFIG_REGISTRY"
@@ -44,6 +46,7 @@
     executable: /bin/bash
   environment:
     NVM_DIR: "{{ nvm_dir }}"
+    NPM_CONFIG_REGISTRY: "{{ (system_environment_vars | default({})).get('NPM_CONFIG_REGISTRY', ansible_facts.env.NPM_CONFIG_REGISTRY | default('')) }}"
   changed_when: false
 
 # Without pnpm_version npm resolves the version itself, which fails on a

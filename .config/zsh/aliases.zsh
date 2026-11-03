@@ -20,8 +20,8 @@ alias cat='bat'
 # =========================================================
 # Core utilities
 # =========================================================
-alias ls='ls --color=auto'
-alias grep='grep --color=auto'
+[[ "$OSTYPE" == darwin* ]] || alias ls='ls --color=auto'
+[[ "$OSTYPE" == darwin* ]] || alias grep='grep --color=auto'
 alias df='df -h'
 
 # =========================================================
@@ -57,7 +57,7 @@ alias docker='podman'
 
 alias nc='ncat'
 
-alias dev="sudo -iu dev sh -c 'cd /srv/dev && exec zsh -il'"
+[[ "$OSTYPE" == darwin* ]] || alias dev="sudo -iu dev sh -c 'cd /srv/dev && exec zsh -il'"
 
 # =========================================================
 # Devsy

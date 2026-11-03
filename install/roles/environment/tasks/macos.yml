@@ -1,0 +1,25 @@
+---
+- name: Ensure the user's Zsh config directory exists
+  ansible.builtin.file:
+    path: "{{ ansible_facts.env.HOME }}/.config/zsh"
+    state: directory
+    mode: '0755'
+
+- name: Set machine-specific variables in the user's Zsh config
+  ansible.builtin.blockinfile:
+    path: "{{ ansible_facts.env.HOME }}/.config/zsh/local.zsh"
+    create: true
+    mode: '0644'
+    marker: "# {mark} ANSIBLE MANAGED MACHINE ENVIRONMENT"
+    block: |
+      {% for item in (system_environment_vars | default({})) | dict2items %}
+      export {{ item.key }}={{ item.value | quote }}
+      {% endfor %}
+  when: (system_environment_vars | default({})) | length > 0
+
+- name: Remove managed machine variables when none are configured
+  ansible.builtin.blockinfile:
+    path: "{{ ansible_facts.env.HOME }}/.config/zsh/local.zsh"
+    state: absent
+    marker: "# {mark} ANSIBLE MANAGED MACHINE ENVIRONMENT"
+  when: (system_environment_vars | default({})) | length == 0

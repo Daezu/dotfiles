@@ -5,8 +5,8 @@
   # the minimal subset; skip the slower hardware/network fact collection.
   gather_subset: ['!all']
   roles:
-    # Always first: writes /etc/environment and reconnects so the vars are
-    # loaded for every role after it.
+    # Always first: applies machine-specific environment values before the
+    # dotfiles and dependency roles run (system-wide on Linux, user-level on macOS).
     - role: environment
       tags: [always, environment]
     - dotfiles

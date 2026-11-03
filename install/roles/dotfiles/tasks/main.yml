@@ -113,6 +113,7 @@
       {%- endfor -%}
       {{ dotfiles_items + items }}
   tags: [gui]
+  when: ansible_facts.system == 'Linux'
 
 # One shell pass over all destinations instead of a stat + mv task per item.
 - name: Back up destinations that exist and aren't already the correct link
